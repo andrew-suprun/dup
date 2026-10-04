@@ -1,7 +1,6 @@
 package app
 
 import (
-	"dup/archive"
 	"dup/fs"
 	"fmt"
 	"log"
@@ -10,25 +9,35 @@ import (
 	"os/signal"
 )
 
-type appState struct {
-	archives []archive.Archive
+func Run(fss []fs.FS) {
+	app := makeApp(fss)
+	defer app.shutdown()
+
+	app.scan()
 }
 
-func Run(fss []fs.FS) {
+type appState struct {
+	archives   []archive
+	events     chan any
+	interrupts chan os.Signal
+}
+
+func makeApp(fss []fs.FS) appState {
 	var app appState
-	app.archives = make([]archive.Archive, len(fss))
+	app.archives = make([]archive, len(fss))
 	for i := range app.archives {
-		app.archives[i] = archive.MakeArchive(i, fss[i].Root())
+		app.archives[i] = makeArchive(i, fss[i])
 	}
 
-	interruptEvents := make(chan os.Signal, 1)
-	signal.Notify(interruptEvents, os.Interrupt)
-	defer signal.Reset(os.Interrupt)
+	app.interrupts = make(chan os.Signal, 1)
+	signal.Notify(app.interrupts, os.Interrupt)
+	return app
+}
 
-	// Scanning
+func (app *appState) scan() {
 	scanEvents := make(chan any)
-	for _, fs := range fss {
-		go fs.Scan(scanEvents)
+	for _, arc := range app.archives {
+		go arc.Fs.Scan(scanEvents)
 	}
 
 	scanned := 0
@@ -39,9 +48,10 @@ scan:
 			switch e := e.(type) {
 			case fs.FileMetas:
 				fmt.Printf("Archive scanned: %#v\n", e.Idx)
-				app.archives[e.Idx] = archive.Archive{Idx: e.Idx, Metas: e.Metas}
+				app.archives[e.Idx] = archive{Idx: e.Idx, Metas: e.Metas}
 			case fs.FileHashed:
 				fmt.Printf("File hashed: %d: %q - %s\n", e.Idx, e.Path, e.Hash)
+				app.archives[e.Idx].UpdateMetasFile = true
 			case fs.ArchiveHashed:
 				fmt.Printf("Archive hashed: %d\n", e.Idx)
 				scanned++
@@ -52,10 +62,15 @@ scan:
 				log.Printf("### Scan event: %v\n", e)
 				panic(e)
 			}
-		case <-interruptEvents:
+		case <-app.interrupts:
+			signal.Reset(os.Interrupt)
 			fmt.Println("Interrupted")
 			log.Println("Interrupted")
 			break scan
 		}
 	}
+}
+
+func (app *appState) shutdown() {
+	fmt.Println("Shutting Down")
 }
