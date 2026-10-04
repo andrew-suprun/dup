@@ -50,5 +50,5 @@ func main() {
 		}
 	}
 
-	app.Run(fss)
+	app.Run(fss, lc)
 }

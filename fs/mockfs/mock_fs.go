@@ -5,6 +5,7 @@ import (
 	"dup/fs"
 	"dup/lifecycle"
 	"encoding/csv"
+	"fmt"
 	"log"
 	"os"
 	"slices"
@@ -48,6 +49,10 @@ func (fsys *FS) Scan(events chan any) {
 	}
 
 	events <- fs.ArchiveHashed{Idx: fsys.idx}
+}
+
+func (fsys *FS) Rename(dest, src string) {
+	fmt.Printf("Renaming[%q] %q to %q\n", fsys.Root(), src, dest)
 }
 
 func (fsys *FS) sync(commands []any, events chan any) {

@@ -53,32 +53,26 @@ func (app *app) backupExcessFiles() {
 			}
 			for i := len(originalFiles); i < len(copyFiles); i++ {
 				path := copyFiles[i]
-				archive.commands = append(archive.commands, fs.Rename{
-					SourcePath:      path,
-					DestinationPath: filepath.Join(app.backup, path),
-				})
-				delete(archive.files, path)
+				archive.fsys.Rename(filepath.Join(app.backup, path), path)
+				delete(archive.metas, path)
 			}
 		}
 	}
 }
 
 func (app *app) resolveConflicts() {
-	for _, file := range app.archives[0].files {
+	for _, file := range app.archives[0].metas {
 		for _, archive := range app.archives[1:] {
-			if other, ok := archive.files[file.path]; ok {
-				if file.hash == other.hash {
+			if other, ok := archive.metas[file.Path]; ok {
+				if file.Hash == other.Hash {
 					continue
 				}
-				dir, name := filepath.Split(other.path)
+				dir, name := filepath.Split(other.Path)
 				newPath := filepath.Join(dir, app.backup+name)
-				archive.commands = append(archive.commands, fs.Rename{
-					SourcePath:      other.path,
-					DestinationPath: newPath,
-				})
-				other.path = newPath
-				archive.files[newPath] = other
-				delete(archive.files, file.path)
+				archive.fsys.Rename(newPath, other.Path)
+				other.Path = newPath
+				archive.metas[newPath] = other
+				delete(archive.metas, file.Path)
 			}
 		}
 	}
@@ -93,13 +87,10 @@ func (app *app) renameAndCopyFiles() {
 			copies := copiesByHash[hash]
 			for i, original := range originals {
 				if i < len(copies) {
-					archive.commands = append(archive.commands, fs.Rename{
-						SourcePath:      copies[i],
-						DestinationPath: original,
-					})
+					archive.fsys.Rename(original, copies[i])
 				} else {
 					newRoots := toCopy[original]
-					newRoots = append(newRoots, archive.fs.Root())
+					newRoots = append(newRoots, archive.fsys.Root())
 					toCopy[original] = newRoots
 				}
 			}
@@ -108,22 +99,21 @@ func (app *app) renameAndCopyFiles() {
 	for path, roots := range toCopy {
 		archive := app.archives[0]
 		if len(roots) > 0 {
-			archive.commands = append(archive.commands, fs.Copy{
+			archive.copyCommands = append(archive.copyCommands, fs.Copy{
 				Path:    path,
-				Hash:    archive.files[path].hash,
+				Hash:    archive.metas[path].Hash,
 				ToRoots: roots,
 			})
 		}
-
 	}
 }
 
 func (arc *archive) byHash() map[string][]string {
 	result := map[string][]string{}
-	for _, file := range arc.files {
-		paths := result[file.hash]
-		paths = append(paths, file.path)
-		result[file.hash] = paths
+	for _, file := range arc.metas {
+		paths := result[file.Hash]
+		paths = append(paths, file.Path)
+		result[file.Hash] = paths
 	}
 	return result
 }

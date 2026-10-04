@@ -5,6 +5,7 @@ import "time"
 type FS interface {
 	Root() string
 	Scan(events chan any)
+	Rename(dest, src string)
 }
 
 type FileMeta struct {
