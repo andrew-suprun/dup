@@ -3,12 +3,12 @@ package app
 import "dup/fs"
 
 type archive struct {
-	Fs              fs.FS
-	Idx             int
-	Metas           []fs.FileMeta
-	UpdateMetasFile bool
+	fsys            fs.FS
+	idx             int
+	metas           map[string]fs.FileMeta
+	updateMetasFile bool
 }
 
 func makeArchive(idx int, fs fs.FS) archive {
-	return archive{Idx: idx, Fs: fs}
+	return archive{idx: idx, fsys: fs}
 }

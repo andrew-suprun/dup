@@ -16,14 +16,15 @@ func Run(fss []fs.FS) {
 	app.scan()
 }
 
-type appState struct {
-	archives   []archive
-	events     chan any
-	interrupts chan os.Signal
+type app struct {
+	archives    []archive
+	events      chan any
+	interrupts  chan os.Signal
+	interrupted bool
 }
 
-func makeApp(fss []fs.FS) appState {
-	var app appState
+func makeApp(fss []fs.FS) app {
+	var app app
 	app.archives = make([]archive, len(fss))
 	for i := range app.archives {
 		app.archives[i] = makeArchive(i, fss[i])
@@ -34,10 +35,10 @@ func makeApp(fss []fs.FS) appState {
 	return app
 }
 
-func (app *appState) scan() {
+func (app *app) scan() {
 	scanEvents := make(chan any)
 	for _, arc := range app.archives {
-		go arc.Fs.Scan(scanEvents)
+		go arc.fsys.Scan(scanEvents)
 	}
 
 	scanned := 0
@@ -48,10 +49,13 @@ scan:
 			switch e := e.(type) {
 			case fs.FileMetas:
 				fmt.Printf("Archive scanned: %#v\n", e.Idx)
-				app.archives[e.Idx] = archive{Idx: e.Idx, Metas: e.Metas}
+				archive := &app.archives[e.Idx]
+				for _, meta := range e.Metas {
+					archive.metas[meta.Path] = meta
+				}
 			case fs.FileHashed:
 				fmt.Printf("File hashed: %d: %q - %s\n", e.Idx, e.Path, e.Hash)
-				app.archives[e.Idx].UpdateMetasFile = true
+				app.archives[e.Idx].updateMetasFile = true
 			case fs.ArchiveHashed:
 				fmt.Printf("Archive hashed: %d\n", e.Idx)
 				scanned++
@@ -64,6 +68,7 @@ scan:
 			}
 		case <-app.interrupts:
 			signal.Reset(os.Interrupt)
+			app.interrupted = true
 			fmt.Println("Interrupted")
 			log.Println("Interrupted")
 			break scan
@@ -71,6 +76,6 @@ scan:
 	}
 }
 
-func (app *appState) shutdown() {
+func (app *app) shutdown() {
 	fmt.Println("Shutting Down")
 }
