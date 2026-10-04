@@ -28,7 +28,7 @@ func (fsys *FS) Root() string {
 }
 
 func (fsys *FS) Scan(events chan any) {
-	time.Sleep(time.Second * time.Duration(fsys.idx))
+	time.Sleep(time.Microsecond * 500 * time.Duration(fsys.idx))
 	metas := []fs.FileMeta{}
 	for _, meta := range archives[fsys.path] {
 		meta.Hash = ""
@@ -45,7 +45,7 @@ func (fsys *FS) Scan(events chan any) {
 			Path: file.Path,
 			Hash: file.Hash,
 		}
-		time.Sleep(time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	events <- fs.ArchiveHashed{Idx: fsys.idx}

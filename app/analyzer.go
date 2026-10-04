@@ -13,6 +13,9 @@ func (app *app) analyzeArchives() {
 }
 
 func (app *app) ignoreIdenticalFiles() {
+	if app.lc.ShoudStop() {
+		return
+	}
 	identicalFiles := []string{}
 	for _, original := range app.archives[0].metas {
 		hasIdentical := true
@@ -34,6 +37,9 @@ func (app *app) ignoreIdenticalFiles() {
 }
 
 func (app *app) backupExcessFiles() {
+	if app.lc.ShoudStop() {
+		return
+	}
 	hashes := map[string]struct{}{}
 	for _, archive := range app.archives {
 		for _, file := range archive.metas {
@@ -61,6 +67,9 @@ func (app *app) backupExcessFiles() {
 }
 
 func (app *app) resolveConflicts() {
+	if app.lc.ShoudStop() {
+		return
+	}
 	for _, file := range app.archives[0].metas {
 		for _, archive := range app.archives[1:] {
 			if other, ok := archive.metas[file.Path]; ok {
@@ -79,6 +88,9 @@ func (app *app) resolveConflicts() {
 }
 
 func (app *app) renameAndCopyFiles() {
+	if app.lc.ShoudStop() {
+		return
+	}
 	toCopy := map[string][]string{}
 	originalsByHash := app.archives[0].byHash()
 	for _, archive := range app.archives[1:] {
