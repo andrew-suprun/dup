@@ -1,0 +1,61 @@
+package fs
+
+import "time"
+
+type FS interface {
+	Root() string
+	Scan(events chan any)
+}
+
+type FileMeta struct {
+	Idx     int
+	Path    string
+	Size    int
+	ModTime time.Time
+	Hash    string
+}
+
+// Commands
+
+type Copy struct {
+	Path    string
+	Hash    string
+	ToRoots []string
+}
+
+type Rename struct {
+	SourcePath      string
+	DestinationPath string
+}
+
+// Events
+
+type FileMetas struct {
+	Idx   int
+	Metas []FileMeta
+}
+
+type FileHashed struct {
+	Idx  int
+	Path string
+	Hash string
+}
+
+type ArchiveHashed struct {
+	Idx int
+}
+
+type RenamingFile struct {
+	Idx  int
+	Path string
+}
+
+type CopyingFile struct {
+	Idx  int
+	Path string
+	Size int
+}
+
+type Synced struct {
+	Idx int
+}
