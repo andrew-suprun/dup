@@ -255,15 +255,19 @@ func init() {
 		Hash:    "xxx",
 	})
 
-	for i := range or {
-		or[i].Idx = 0
-	}
-	for i := range c1 {
-		c1[i].Idx = 1
-	}
-	for i := range c2 {
-		c2[i].Idx = 2
-	}
+	c2 = append(c2, fs.FileMeta{
+		Path:    "nnn/mmm1/aaa",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm1/bbb",
+	})
+
+	c2 = append(c2, fs.FileMeta{
+		Path:    "nnn/mmm1/bbb",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm1/aaa",
+	})
 
 	archives = map[string][]fs.FileMeta{
 		"origin": or,

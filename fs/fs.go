@@ -1,6 +1,9 @@
 package fs
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type FS interface {
 	Root() string
@@ -9,11 +12,14 @@ type FS interface {
 }
 
 type FileMeta struct {
-	Idx     int
 	Path    string
 	Size    int
 	ModTime time.Time
 	Hash    string
+}
+
+func (meta FileMeta) String() string {
+	return fmt.Sprintf("%q hash:%s", meta.Path, meta.Hash)
 }
 
 // Commands

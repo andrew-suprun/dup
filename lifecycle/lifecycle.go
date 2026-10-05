@@ -2,8 +2,6 @@ package lifecycle
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"sync"
 )
 
@@ -14,8 +12,7 @@ type Lifecycle struct {
 }
 
 func New() *Lifecycle {
-	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Lifecycle{wg: sync.WaitGroup{}, ctx: ctx, cancel: cancel}
 }
 
@@ -37,7 +34,6 @@ func (lc *Lifecycle) ShoudStop() bool {
 }
 
 func (lc *Lifecycle) Stop() {
-	signal.Reset(os.Interrupt)
 	lc.cancel()
 	lc.wg.Wait()
 }
