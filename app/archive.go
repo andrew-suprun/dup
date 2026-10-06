@@ -6,8 +6,9 @@ import (
 )
 
 type archive struct {
-	fsys            fs.FS
 	idx             int
+	fsys            fs.FS
+	events          chan any
 	metas           []fileMeta
 	state           archiveState
 	updateMetasFile bool
@@ -53,6 +54,6 @@ const (
 	copying
 )
 
-func newArchive(idx int, fsys fs.FS) *archive {
-	return &archive{fsys: fsys, idx: idx}
+func newArchive(idx int, fsys fs.FS, events chan any) *archive {
+	return &archive{fsys: fsys, idx: idx, events: events}
 }

@@ -20,7 +20,7 @@ func (lc *Lifecycle) Started() {
 	lc.wg.Add(1)
 }
 
-func (lc *Lifecycle) Done() {
+func (lc *Lifecycle) Finished() {
 	lc.wg.Done()
 }
 

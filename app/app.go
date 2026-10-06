@@ -6,26 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"time"
 )
-
-func Run(fss []fs.FS, lc *lifecycle.Lifecycle) {
-	go handleInterrupts(lc)
-	app := makeApp(fss, lc)
-	defer app.shutdown()
-
-	app.scan()
-	app.analyzeArchives()
-}
-
-func handleInterrupts(lc *lifecycle.Lifecycle) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
-	signal.Reset()
-	lc.Stop()
-}
 
 type app struct {
 	lc       *lifecycle.Lifecycle
@@ -34,24 +16,42 @@ type app struct {
 	backup   string
 }
 
-func makeApp(fss []fs.FS, lc *lifecycle.Lifecycle) app {
+func NewApp(fss []fs.FS, backup string, lc *lifecycle.Lifecycle, events chan any) *app {
 	var app = app{
-		lc:       lc,
+		lc:       lifecycle.New(),
 		archives: make([]*archive, len(fss)),
 		events:   make(chan any, len(fss)),
-		backup:   time.Now().Format("~~~060102-150405~~~"),
+		backup:   backup,
 	}
 
 	for i := range app.archives {
-		app.archives[i] = newArchive(i, fss[i])
+		app.archives[i] = newArchive(i, fss[i], app.events)
 	}
 
-	return app
+	return &app
+}
+
+func Run(fss []fs.FS, backup string, lc *lifecycle.Lifecycle, events chan any) {
+	var app = app{
+		lc:       lifecycle.New(),
+		archives: make([]*archive, len(fss)),
+		events:   make(chan any, len(fss)),
+		backup:   backup,
+	}
+
+	for i := range app.archives {
+		app.archives[i] = newArchive(i, fss[i], app.events)
+	}
+
+	defer app.shutdown()
+
+	app.scan()
+	app.analyzeArchives()
 }
 
 func (app *app) scan() {
 	for _, arc := range app.archives {
-		go arc.fsys.Scan(app.events)
+		go arc.fsys.Scan()
 	}
 
 	scanned := 0
@@ -65,7 +65,7 @@ func (app *app) scan() {
 			case fs.FileMetas:
 				fmt.Printf("Archive scanned: %#v\n", e.Idx)
 				archive := app.archives[e.Idx]
-				archive.metas = make([]fileMeta, len(e.Metas), len(e.Metas))
+				archive.metas = make([]fileMeta, len(e.Metas))
 				for i := range e.Metas {
 					archive.metas[i] = fileMeta{FileMeta: e.Metas[i], state: initial}
 				}

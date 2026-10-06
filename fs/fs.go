@@ -6,9 +6,10 @@ import (
 )
 
 type FS interface {
-	Root() string
-	Scan(events chan any)
-	Rename(dest, src string)
+	Scan()
+	Rename(dest, src string) error
+	Copy(roots []string, src string)
+	StoreMetas(FileMetas)
 }
 
 type FileMeta struct {
@@ -20,19 +21,6 @@ type FileMeta struct {
 
 func (meta FileMeta) String() string {
 	return fmt.Sprintf("%q hash:%s", meta.Path, meta.Hash)
-}
-
-// Commands
-
-type Copy struct {
-	Path    string
-	Hash    string
-	ToRoots []string
-}
-
-type Rename struct {
-	SourcePath      string
-	DestinationPath string
 }
 
 // Events
@@ -52,17 +40,14 @@ type ArchiveHashed struct {
 	Idx int
 }
 
-type RenamingFile struct {
-	Idx  int
-	Path string
-}
-
 type CopyingFile struct {
 	Idx  int
 	Path string
 	Size int
 }
 
-type Synced struct {
-	Idx int
+type FileCopied struct {
+	Idx  int
+	Path string
+	Size int
 }

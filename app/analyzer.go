@@ -6,6 +6,9 @@ import (
 )
 
 func (app *app) analyzeArchives() {
+	if app.lc.ShoudStop() {
+		return
+	}
 	fmt.Printf("---- analizing\n")
 	for i, archive := range app.archives {
 		fmt.Printf("Archive [%d] %v\n", i, archive.state)
@@ -41,6 +44,9 @@ func (app *app) backupConflicts() {
 				}
 			}
 			if foundConflict {
+				if app.lc.ShoudStop() {
+					return
+				}
 				newPath := filepath.Join(app.backup, copy.Path)
 				archive.fsys.Rename(newPath, copy.Path)
 				copy.Path = newPath
@@ -69,6 +75,9 @@ func (app *app) markIdentical() {
 				for i := range archive.metas {
 					copy := &archive.metas[i]
 					if copy.state == backedUp && copy.Hash == original.Hash {
+						if app.lc.ShoudStop() {
+							return
+						}
 						copy.state = done
 						found = true
 						archive.fsys.Rename(original.Path, copy.Path)

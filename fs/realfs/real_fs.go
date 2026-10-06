@@ -31,34 +31,19 @@ type meta struct {
 }
 
 type FS struct {
-	root string
-	idx  int
-	lc   *lifecycle.Lifecycle
+	root   string
+	idx    int
+	lc     *lifecycle.Lifecycle
+	events chan any
 }
 
-func New(path string, idx int, lc *lifecycle.Lifecycle) *FS {
-	return &FS{root: path, idx: idx, lc: lc}
+func New(path string, idx int, lc *lifecycle.Lifecycle, events chan any) *FS {
+	return &FS{root: path, idx: idx, lc: lc, events: events}
 }
 
-func (fsys *FS) Root() string {
-	return fsys.root
-}
-
-func (fsys *FS) Scan(events chan any) {
-	go fsys.scan(events)
-}
-
-func (fsys *FS) Sync(commands []any, events chan any) {
-	go fsys.sync(commands, events)
-}
-
-func (fsys *FS) Rename(dest, src string) {
-	fmt.Printf("Renaming[%q] %q to %q\n", fsys.Root(), src, dest)
-}
-
-func (fsys *FS) scan(events chan any) {
+func (fsys *FS) Scan() {
 	fsys.lc.Started()
-	defer fsys.lc.Done()
+	defer fsys.lc.Finished()
 
 	metas := fs.FileMetas{Idx: fsys.idx}
 
@@ -67,7 +52,7 @@ func (fsys *FS) scan(events chan any) {
 
 	defer func() {
 		_ = fsys.storeMeta(fsys.root, metaSlice)
-		events <- fs.ArchiveHashed{Idx: fsys.idx}
+		fsys.events <- fs.ArchiveHashed{Idx: fsys.idx}
 	}()
 
 	osfs := os.DirFS(fsys.root)
@@ -126,7 +111,7 @@ func (fsys *FS) scan(events chan any) {
 		return
 	}
 
-	events <- metas
+	fsys.events <- metas
 
 	for _, meta := range metaSlice {
 		if meta.file.Hash != "" {
@@ -137,7 +122,7 @@ func (fsys *FS) scan(events chan any) {
 		}
 		log.Printf("%d: hash %q\n", fsys.idx, meta.file.Path)
 		meta.file.Hash = fsys.hashFile(meta.file)
-		events <- fs.FileHashed{
+		fsys.events <- fs.FileHashed{
 			Idx:  fsys.idx,
 			Path: meta.file.Path,
 			Hash: meta.file.Hash,
@@ -145,46 +130,27 @@ func (fsys *FS) scan(events chan any) {
 	}
 }
 
-func (fsys *FS) sync(commands []any, events chan any) {
-	defer func() { events <- fs.Synced{Idx: fsys.idx} }()
-	for _, cmd := range commands {
-		switch cmd := cmd.(type) {
-		case fs.Rename:
-			log.Printf("rename %q to %q\n", cmd.SourcePath, cmd.DestinationPath)
-			fsys.renameFile(cmd, events)
-		case fs.Copy:
-			log.Printf("copy %q to %v\n", cmd.Path, cmd.ToRoots)
-			fsys.copyFile(cmd, events)
-		}
-	}
-}
-
-func (fsys *FS) renameFile(cmd fs.Rename, events chan any) {
-	events <- fs.RenamingFile{
-		Idx:  fsys.idx,
-		Path: cmd.SourcePath,
-	}
-	path := filepath.Join(fsys.root, filepath.Dir(cmd.DestinationPath))
+func (fsys *FS) Rename(dest, src string) error {
+	path := filepath.Join(fsys.root, filepath.Dir(dest))
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
-		log.Printf("Error: failed to create folder %q: %#v\n", path, err)
-		return
+		return err
 	}
-	from := filepath.Join(fsys.root, cmd.SourcePath)
-	to := filepath.Join(fsys.root, cmd.DestinationPath)
+	from := filepath.Join(fsys.root, src)
+	to := filepath.Join(fsys.root, dest)
 	err = os.Rename(from, to)
 	if err != nil {
-		log.Printf("Error: failed to rename file %q: %#v\n", from, err)
-		return
+		return err
 	}
 	fsys.removeDirIfEmpty(filepath.Dir(from))
+	return nil
 }
 
-func (fsys *FS) copyFile(cmd fs.Copy, events chan any) {
+func (fsys *FS) Copy(roots []string, src string) {
 	fsys.lc.Started()
-	defer fsys.lc.Done()
+	defer fsys.lc.Finished()
 
-	eventChans := make([]chan []byte, len(cmd.ToRoots))
+	eventChans := make([]chan []byte, len(roots))
 
 	defer func() {
 		for _, ch := range eventChans {
@@ -192,16 +158,16 @@ func (fsys *FS) copyFile(cmd fs.Copy, events chan any) {
 		}
 	}()
 
-	source := filepath.Join(fsys.root, cmd.Path)
+	source := filepath.Join(fsys.root, src)
 	info, err := os.Stat(source)
 	if err != nil {
 		log.Printf("Error: failed to read from file %q: %#v\n", source, err)
 		return
 	}
 
-	for i, root := range cmd.ToRoots {
+	for i, root := range roots {
 		eventChans[i] = make(chan []byte, 1)
-		go fsys.writer(root, cmd.Path, cmd.Hash, info.Size(), info.ModTime(), eventChans[i])
+		go fsys.writer(root, src, info.Size(), info.ModTime(), eventChans[i])
 	}
 
 	sourceFile, err := os.Open(source)
@@ -223,17 +189,17 @@ func (fsys *FS) copyFile(cmd fs.Copy, events chan any) {
 		for _, eventChan := range eventChans {
 			eventChan <- buf[:n]
 		}
-		events <- fs.CopyingFile{
+		fsys.events <- fs.CopyingFile{
 			Idx:  fsys.idx,
-			Path: cmd.Path,
+			Path: src,
 			Size: n,
 		}
 	}
 }
 
-func (fsys *FS) writer(root, path, hash string, size int64, modTime time.Time, events chan []byte) {
+func (fsys *FS) writer(root, path string, size int64, modTime time.Time, events chan []byte) {
 	fsys.lc.Started()
-	defer fsys.lc.Done()
+	defer fsys.lc.Finished()
 
 	fullPath := filepath.Join(root, path)
 
@@ -326,6 +292,9 @@ func (fsys *FS) readMeta() map[uint64]*fs.FileMeta {
 		}
 	}
 	return metas
+}
+
+func (s *FS) StoreMetas(fs.FileMetas) {
 }
 
 func (s *FS) storeMeta(root string, metas []*meta) error {
