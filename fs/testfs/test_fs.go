@@ -9,11 +9,11 @@ import (
 )
 
 type TestFs struct {
-	idx    int
-	script []string
-	events chan any
-	t      *testing.T
-	line   int
+	idx     int
+	script  []string
+	events  chan any
+	t       *testing.T
+	lineIdx int
 }
 
 func New(idx int, t *testing.T, script []string, events chan any) *TestFs {
@@ -27,9 +27,10 @@ func New(idx int, t *testing.T, script []string, events chan any) *TestFs {
 
 func (fsys *TestFs) Scan() {
 	metas := []fs.FileMeta{}
-	for _, line := range fsys.script {
+	for idx, line := range fsys.script {
 		fmt.Printf("line [%d]: %q\n", fsys.idx, line)
 		if line == "---" {
+			fsys.lineIdx = idx + 1
 			break
 		}
 		parts := strings.Split(line, "/")
@@ -50,18 +51,20 @@ func (fsys *TestFs) Scan() {
 }
 
 func (fs *TestFs) Rename(dest, src string) error {
-	fmt.Println("rename", src, "->", dest)
-	expected := fs.script[fs.line]
+	received := fmt.Sprintf("mv: %s -> %s", src, dest)
+	if fs.lineIdx >= len(fs.script) {
+		fs.t.Fatalf("Unexpected rename: %s", received)
+	}
+	expected := fs.script[fs.lineIdx]
 
 	if expected == "ERROR" {
 		return Error("ERROR")
 	}
 
-	received := fmt.Sprintf("mv: %s -> %s", src, dest)
 	if received != expected {
-		fs.t.Errorf("expected %q | received %q\n", expected, received)
+		fs.t.Fatalf("expected %s | received %s\n", expected, received)
 	}
-	fs.line++
+	fs.lineIdx++
 	return nil
 }
 

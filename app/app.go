@@ -16,26 +16,11 @@ type app struct {
 	backup   string
 }
 
-func NewApp(fss []fs.FS, backup string, lc *lifecycle.Lifecycle, events chan any) *app {
-	var app = app{
-		lc:       lifecycle.New(),
-		archives: make([]*archive, len(fss)),
-		events:   make(chan any, len(fss)),
-		backup:   backup,
-	}
-
-	for i := range app.archives {
-		app.archives[i] = newArchive(i, fss[i], app.events)
-	}
-
-	return &app
-}
-
 func Run(fss []fs.FS, backup string, lc *lifecycle.Lifecycle, events chan any) {
 	var app = app{
 		lc:       lifecycle.New(),
 		archives: make([]*archive, len(fss)),
-		events:   make(chan any, len(fss)),
+		events:   events,
 		backup:   backup,
 	}
 

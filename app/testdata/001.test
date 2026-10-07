@@ -5,3 +5,7 @@ b/b
 a/b
 b/a
 ---
+mv: a -> backup/a
+mv: b -> backup/b
+mv: backup/b -> a
+mv: backup/a -> b

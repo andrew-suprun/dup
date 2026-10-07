@@ -14,7 +14,7 @@ import (
 func TestRun(t *testing.T) {
 	entries, err := os.ReadDir("testdata")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	fmt.Println("len", len(entries))
 	events := make(chan any, 1)
@@ -26,7 +26,7 @@ func TestRun(t *testing.T) {
 		fmt.Println(entry)
 		content, err := os.ReadFile(filepath.Join("testdata", entry.Name()))
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		scripts := strings.Split(string(content), "===\n")
 		fmt.Println("scripts", len(scripts))
