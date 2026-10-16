@@ -1,4 +1,4 @@
-package app
+package main
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ func (app *app) analyzeArchives() {
 	fmt.Printf("---- analizing\n")
 	for i, archive := range app.archives {
 		fmt.Printf("Archive [%d] %v\n", i, archive.state)
-		for _, meta := range archive.metas {
+		for _, meta := range archive.state.metas {
 			fmt.Printf("  state: %v - %q %s\n", meta.state, meta.Path, meta.Hash)
 		}
 	}
@@ -48,7 +48,7 @@ func (app *app) backupConflicts() {
 					return
 				}
 				newPath := filepath.Join(app.backup, copy.Path)
-				archive.fsys.Rename(newPath, copy.Path)
+				archive.fsys.Move(newPath, copy.Path)
 				copy.Path = newPath
 				copy.state = backedUp
 			}
@@ -80,7 +80,7 @@ func (app *app) markIdentical() {
 						}
 						copy.state = done
 						found = true
-						archive.fsys.Rename(original.Path, copy.Path)
+						archive.fsys.Move(original.Path, copy.Path)
 						copy.Path = original.Path
 						break
 					}

@@ -1,4 +1,4 @@
-package lifecycle
+package main
 
 import (
 	"context"
@@ -11,7 +11,7 @@ type Lifecycle struct {
 	cancel context.CancelFunc
 }
 
-func New() *Lifecycle {
+func NewLifecycle() *Lifecycle {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Lifecycle{wg: sync.WaitGroup{}, ctx: ctx, cancel: cancel}
 }

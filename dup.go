@@ -7,15 +7,10 @@ import (
 	"os"
 	"os/signal"
 	"time"
-
-	"dup/app"
-	"dup/fs"
-	"dup/fs/realfs"
-	"dup/lifecycle"
 )
 
 func main() {
-	lc := lifecycle.New()
+	lc := NewLifecycle()
 	go handleInterrupts(lc)
 
 	logName := os.Getenv("DUP_LOG")
@@ -33,28 +28,27 @@ func main() {
 		log.SetOutput(io.Discard)
 	}
 
-	events := make(chan any, len(os.Args)-1)
-	fss := []fs.FS{}
-	fss = make([]fs.FS, 0, len(os.Args)-1)
+	fss := []FS{}
+	fss = make([]FS, 0, len(os.Args)-1)
 	for idx, path := range os.Args[1:] {
 		err := os.MkdirAll(path, 0755)
 		if err != nil {
 			log.Printf("Failed to scan archives: %W\n", err)
 			panic(err)
 		}
-		path, err := realfs.AbsPath(path)
+		path, err := AbsPath(path)
 		if err != nil {
 			log.Printf("Failed to scan archives: %W\n", err)
 			panic(err)
 		}
-		fss = append(fss, realfs.New(path, idx, lc, events))
+		fss = append(fss, NewFS(path, idx, lc, events))
 	}
 
 	backup := time.Now().Format("~~~060102-150405~~~")
 	app.Run(fss, backup, lc, events)
 }
 
-func handleInterrupts(lc *lifecycle.Lifecycle) {
+func handleInterrupts(lc *Lifecycle) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c

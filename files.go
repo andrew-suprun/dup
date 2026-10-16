@@ -1,4 +1,4 @@
-package realfs
+package main
 
 import (
 	"crypto/sha256"
@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	iofs "io/fs"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -17,9 +17,6 @@ import (
 	"time"
 
 	"golang.org/x/text/unicode/norm"
-
-	"dup/fs"
-	"dup/lifecycle"
 )
 
 const hashFileName = ".meta.csv"
@@ -27,38 +24,38 @@ const bufSize = 256 * 1024
 
 type meta struct {
 	inode uint64
-	file  *fs.FileMeta
+	file  *FileMeta
 }
 
-type FS struct {
+type FileFS struct {
 	root   string
 	idx    int
-	lc     *lifecycle.Lifecycle
+	lc     *Lifecycle
 	events chan any
 }
 
-func New(path string, idx int, lc *lifecycle.Lifecycle, events chan any) *FS {
-	return &FS{root: path, idx: idx, lc: lc, events: events}
+func NewFS(path string, idx int, lc *Lifecycle, events chan any) *FileFS {
+	return &FileFS{root: path, idx: idx, lc: lc, events: events}
 }
 
-func (fsys *FS) Scan() {
+func (fsys *FileFS) ScanArchive() {
 	fsys.lc.Started()
 	defer fsys.lc.Finished()
 
-	metas := fs.FileMetas{Idx: fsys.idx}
+	metas := FileMetas{Idx: fsys.idx}
 
 	metaMap := fsys.readMeta()
 	var metaSlice []*meta
 
 	defer func() {
 		_ = fsys.storeMeta(fsys.root, metaSlice)
-		fsys.events <- fs.ArchiveHashed{Idx: fsys.idx}
+		fsys.events <- ArchiveHashed{Idx: fsys.idx}
 	}()
 
 	osfs := os.DirFS(fsys.root)
-	err := iofs.WalkDir(osfs, ".", func(path string, d iofs.DirEntry, err error) error {
+	err := fs.WalkDir(osfs, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() && strings.HasPrefix(d.Name(), "~~~") {
-			return iofs.SkipDir
+			return fs.SkipDir
 		}
 		if fsys.lc.ShoudStop() || !d.Type().IsRegular() || d.Name() == hashFileName || d.Name() == ".DS_Store" {
 			return nil
@@ -83,7 +80,7 @@ func (fsys *FS) Scan() {
 		modTime := info.ModTime()
 		modTime = modTime.UTC().Round(time.Second)
 
-		file := &fs.FileMeta{
+		file := &FileMeta{
 			Path:    norm.NFC.String(path),
 			Size:    size,
 			ModTime: modTime,
@@ -122,7 +119,7 @@ func (fsys *FS) Scan() {
 		}
 		log.Printf("%d: hash %q\n", fsys.idx, meta.file.Path)
 		meta.file.Hash = fsys.hashFile(meta.file)
-		fsys.events <- fs.FileHashed{
+		fsys.events <- FileHashed{
 			Idx:  fsys.idx,
 			Path: meta.file.Path,
 			Hash: meta.file.Hash,
@@ -130,7 +127,7 @@ func (fsys *FS) Scan() {
 	}
 }
 
-func (fsys *FS) Rename(dest, src string) error {
+func (fsys *FileFS) Move(src, dest string) error {
 	path := filepath.Join(fsys.root, filepath.Dir(dest))
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
@@ -146,7 +143,7 @@ func (fsys *FS) Rename(dest, src string) error {
 	return nil
 }
 
-func (fsys *FS) Copy(roots []string, src string) {
+func (fsys *FileFS) Copy(roots []string, src string) {
 	fsys.lc.Started()
 	defer fsys.lc.Finished()
 
@@ -189,7 +186,7 @@ func (fsys *FS) Copy(roots []string, src string) {
 		for _, eventChan := range eventChans {
 			eventChan <- buf[:n]
 		}
-		fsys.events <- fs.CopyingFile{
+		fsys.events <- CopyingFile{
 			Idx:  fsys.idx,
 			Path: src,
 			Size: n,
@@ -197,7 +194,7 @@ func (fsys *FS) Copy(roots []string, src string) {
 	}
 }
 
-func (fsys *FS) writer(root, path string, size int64, modTime time.Time, events chan []byte) {
+func (fsys *FileFS) writer(root, path string, size int64, modTime time.Time, events chan []byte) {
 	fsys.lc.Started()
 	defer fsys.lc.Finished()
 
@@ -240,10 +237,10 @@ func (fsys *FS) writer(root, path string, size int64, modTime time.Time, events 
 	}
 }
 
-func (fsys *FS) removeDirIfEmpty(path string) {
+func (fsys *FileFS) removeDirIfEmpty(path string) {
 	osfs := os.DirFS(path)
 
-	entries, _ := iofs.ReadDir(osfs, ".")
+	entries, _ := fs.ReadDir(osfs, ".")
 	for _, entry := range entries {
 		if entry.Name() != ".DS_Store" && !strings.HasPrefix(entry.Name(), "._") {
 			return
@@ -252,8 +249,8 @@ func (fsys *FS) removeDirIfEmpty(path string) {
 	os.RemoveAll(path)
 }
 
-func (fsys *FS) readMeta() map[uint64]*fs.FileMeta {
-	metas := map[uint64]*fs.FileMeta{}
+func (fsys *FileFS) readMeta() map[uint64]*FileMeta {
+	metas := map[uint64]*FileMeta{}
 	absHashFileName := filepath.Join(fsys.root, hashFileName)
 	hashInfoFile, err := os.Open(absHashFileName)
 	if err != nil {
@@ -278,7 +275,7 @@ func (fsys *FS) readMeta() map[uint64]*fs.FileMeta {
 				continue
 			}
 
-			metas[iNode] = &fs.FileMeta{
+			metas[iNode] = &FileMeta{
 				Path:    path,
 				Size:    int(size),
 				ModTime: modTime,
@@ -294,10 +291,10 @@ func (fsys *FS) readMeta() map[uint64]*fs.FileMeta {
 	return metas
 }
 
-func (s *FS) StoreMetas(fs.FileMetas) {
+func (s *FileFS) StoreMetas(FileMetas) {
 }
 
-func (s *FS) storeMeta(root string, metas []*meta) error {
+func (s *FileFS) storeMeta(root string, metas []*meta) error {
 	result := make([][]string, 1, len(metas)+1)
 	result[0] = []string{"INode", "Name", "Size", "ModTime", "Hash"}
 
@@ -325,7 +322,7 @@ func (s *FS) storeMeta(root string, metas []*meta) error {
 	return err
 }
 
-func (fsys *FS) hashFile(meta *fs.FileMeta) string {
+func (fsys *FileFS) hashFile(meta *FileMeta) string {
 	hash := sha256.New()
 	buf := make([]byte, bufSize)
 	path := filepath.Join(fsys.root, meta.Path)

@@ -1,9 +1,6 @@
-package app
+package main
 
 import (
-	"dup/fs"
-	"dup/fs/testfs"
-	"dup/lifecycle"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +15,6 @@ func TestRun(t *testing.T) {
 	}
 	fmt.Println("len", len(entries))
 	events := make(chan any, 1)
-	lc := lifecycle.New()
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".test") {
 			continue
@@ -30,13 +26,13 @@ func TestRun(t *testing.T) {
 		}
 		scripts := strings.Split(string(content), "===\n")
 		fmt.Println("scripts", len(scripts))
-		fss := []fs.FS{}
+		fss := []FS{}
 		for i, scriptStr := range scripts {
 			script := strings.Split(scriptStr, "\n")
 			fmt.Println("script", script)
-			fs := testfs.New(i, t, script, events)
+			fs := New(i, t, script, events)
 			fss = append(fss, fs)
 		}
-		Run(fss, "backup", lc, events)
+		Run(fss, "backup")
 	}
 }

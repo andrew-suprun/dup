@@ -1,21 +1,11 @@
-package app
+package main
 
 import (
-	"dup/fs"
 	"fmt"
 )
 
-type archive struct {
-	idx             int
-	fsys            fs.FS
-	events          chan any
-	metas           []fileMeta
-	state           archiveState
-	updateMetasFile bool
-}
-
 type fileMeta struct {
-	fs.FileMeta
+	FileMeta
 	state fileState
 }
 
@@ -46,14 +36,6 @@ func (state fileState) String() string {
 	return ""
 }
 
-type archiveState int
-
-const (
-	scanning archiveState = iota
-	hashing
-	copying
-)
-
-func newArchive(idx int, fsys fs.FS, events chan any) *archive {
-	return &archive{fsys: fsys, idx: idx, events: events}
+func newArchive(idx int, fsys FS, lc *Lifecycle) *archive {
+	return &archive{fsys: fsys, idx: idx, state: make(chan archiveState, 1), lc: lc}
 }
