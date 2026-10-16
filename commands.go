@@ -10,15 +10,19 @@ type MoveFile struct {
 	Src  string
 	Dest string
 }
-
-// LoadMetas() FileMetas
-// StoreMetas(FileMetas)
-// ScanArchive() (FileMetas, error)
-// HashFile(path string) (string, error)
-// MoveFile(src, dest string) error
-// OpenFile(path string) error
-// ReadFile([]byte) error
-// CreateFile(path string) error
-// WriteFile([]byte) error
-// CloseFile() error
-// RemoveFile(string)
+type OpenFile struct {
+	Path string
+}
+type ReadFile struct {
+	Buf []byte
+}
+type CreateFile struct {
+	Path string
+}
+type WriteFile struct {
+	Buf []byte
+}
+type CloseFile struct{}
+type RemoveFile struct {
+	Path string
+}

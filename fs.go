@@ -12,7 +12,7 @@ type Backend interface {
 	HashFile(path string) (string, error)
 	MoveFile(src, dest string) error
 	OpenFile(path string) error
-	ReadFile([]byte) error
+	ReadFile([]byte) (int, error)
 	CreateFile(path string) error
 	WriteFile([]byte) error
 	CloseFile() error

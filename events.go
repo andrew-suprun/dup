@@ -26,6 +26,35 @@ type FileMoved struct {
 	Dest string
 }
 
+type FileOpened struct {
+	Idx  int
+	Path string
+}
+
+type FileRead struct {
+	Idx  int
+	Size int
+}
+
+type FileCreated struct {
+	Idx  int
+	Path string
+}
+
+type FileWritten struct {
+	Idx  int
+	Size int
+}
+
+type FileClosed struct {
+	Idx int
+}
+
+type FileRemoved struct {
+	Idx  int
+	Path string
+}
+
 type ArchiveHashed struct {
 	Idx int
 }
