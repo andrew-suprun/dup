@@ -20,6 +20,12 @@ type FileHashed struct {
 	Hash string
 }
 
+type FileMoved struct {
+	Idx  int
+	Src  string
+	Dest string
+}
+
 type ArchiveHashed struct {
 	Idx int
 }

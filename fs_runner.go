@@ -42,6 +42,8 @@ func (r *fsRunner) handleCommand(cmd any) {
 		r.scanArchive()
 	case HashFile:
 		r.hashFile(c)
+	case MoveFile:
+		r.moveFile(c)
 	}
 }
 
@@ -69,4 +71,12 @@ func (r *fsRunner) hashFile(cmd HashFile) {
 		r.events <- err
 	}
 	r.events <- FileHashed{Idx: r.idx, Path: cmd.Path, Hash: hash}
+}
+
+func (r *fsRunner) moveFile(cmd MoveFile) {
+	err := r.backend.MoveFile(cmd.Src, cmd.Dest)
+	if err != nil {
+		r.events <- err
+	}
+	r.events <- FileMoved{Idx: r.idx, Src: cmd.Src, Dest: cmd.Dest}
 }

@@ -6,6 +6,10 @@ type ScanArchive struct{}
 type HashFile struct {
 	Path string
 }
+type MoveFile struct {
+	Src  string
+	Dest string
+}
 
 // LoadMetas() FileMetas
 // StoreMetas(FileMetas)
