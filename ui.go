@@ -2,7 +2,7 @@ package main
 
 import "time"
 
-func (app *app) ui() {
+func (app *App) ui() {
 	for {
 		if app.lc.ShoudStop() {
 			return

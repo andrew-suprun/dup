@@ -1,7 +1,5 @@
 package main
 
-type LoadMetas struct{}
-type StoreMetas FileMetas
 type ScanArchive struct{}
 type HashFile struct {
 	Path string

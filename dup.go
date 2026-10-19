@@ -45,7 +45,7 @@ func main() {
 	}
 
 	backup := time.Now().Format("~~~060102-150405~~~")
-	app.Run(fss, backup, lc, events)
+	App.Run(fss, backup, lc, events)
 }
 
 func handleInterrupts(lc *Lifecycle) {

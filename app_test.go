@@ -33,6 +33,6 @@ func TestRun(t *testing.T) {
 			fs := New(i, t, script, events)
 			fss = append(fss, fs)
 		}
-		Run(fss, "backup")
+		run(fss, "backup")
 	}
 }
