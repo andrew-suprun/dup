@@ -2,28 +2,39 @@ package main
 
 import "io/fs"
 
-type App struct {
-	archiveCommands []chan<- any
-	archiveEvents   <-chan any
-	uiEvents        chan<- any
-	quit            <-chan struct{}
+type AppState struct {
+	archives      []ArchiveState
+	backup        string
+	archiveEvents <-chan any
+	uiEvents      chan<- any
+	quit          <-chan struct{}
 }
 
-func run(fss []fs.FS, uiEvents chan<- any, backup string) {
-	archiveEvents := make(chan any, len(fss))
-	app := &App{
+type ArchiveState struct {
+	root     string
+	commands chan<- any
+}
+
+func run(roots []string, backup string, fsys fs.FS, uiEvents chan<- any) {
+	archiveEvents := make(chan any, len(roots))
+	app := &AppState{
+		backup:        backup,
 		uiEvents:      uiEvents,
 		quit:          make(chan struct{}),
 		archiveEvents: archiveEvents,
 	}
-	for i, fsys := range fss {
+	app.archives = make([]ArchiveState, len(roots))
+	for i, root := range roots {
 		archiveCommands := make(chan any, 1)
-		go runArchive(i, fsys, backup, archiveCommands, archiveEvents, app.quit)
-		app.archiveCommands[i] = archiveCommands
+		app.archives[i] = ArchiveState{
+			root:     root,
+			commands: archiveCommands,
+		}
+		go runArchive(i, fsys, archiveCommands, archiveEvents, app.quit)
 	}
 
-	for _, cmd := range app.archiveCommands {
-		cmd <- ScanArchive{}
+	for _, archive := range app.archives {
+		archive.commands <- ScanArchive{}
 	}
 	for {
 		archiveEvent := <-app.archiveEvents

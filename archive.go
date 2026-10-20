@@ -5,11 +5,10 @@ import (
 	"io/fs"
 )
 
-func runArchive(idx int, fsys fs.FS, backup string, commands <-chan any, events chan<- any, quit <-chan struct{}) {
+func runArchive(idx int, fsys fs.FS, commands <-chan any, events chan<- any, quit <-chan struct{}) {
 	archive := &Archive{
 		idx:      idx,
 		fsys:     fsys,
-		backup:   backup,
 		commands: commands,
 		events:   events,
 		quit:     quit,
@@ -37,7 +36,6 @@ func (arcive *Archive) shutdown() {
 type Archive struct {
 	idx      int
 	fsys     fs.FS
-	backup   string
 	commands <-chan any
 	events   chan<- any
 	quit     <-chan struct{}

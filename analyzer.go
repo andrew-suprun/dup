@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-func (app *App) analyzeArchives() {
+func (app *AppState) analyzeArchives() {
 	if app.lc.ShoudStop() {
 		return
 	}
@@ -29,7 +29,7 @@ func (app *App) analyzeArchives() {
 	}
 }
 
-func (app *App) backupConflicts() {
+func (app *AppState) backupConflicts() {
 	for _, archive := range app.archives[1:] {
 		for i := range archive.metas {
 			copy := &archive.metas[i]
@@ -56,7 +56,7 @@ func (app *App) backupConflicts() {
 	}
 }
 
-func (app *App) markIdentical() {
+func (app *AppState) markIdentical() {
 	for metaIdx := range app.archives[0].metas {
 		original := &app.archives[0].metas[metaIdx]
 
