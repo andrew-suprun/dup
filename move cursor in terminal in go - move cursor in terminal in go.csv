@@ -1,0 +1,8 @@
+Movement,ANSI Escape Code,Description
+Absolute Position,\033[<row>;<col>H,Moves cursor to a specific row and column (1-indexed).
+Move Up,\033[<n>A,Moves the cursor up n lines.
+Move Down,\033[<n>B,Moves the cursor down n lines.
+Move Forward,\033[<n>C,Moves the cursor right n columns.
+Move Backward,\033[<n>D,Moves the cursor left n columns.
+To Column 1,\033[1G,Moves the cursor to the beginning of the current line.
+Save / Restore,\0337 / \0338,Saves the current cursor position and restores it later.
