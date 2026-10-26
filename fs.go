@@ -19,13 +19,6 @@ type Backend interface {
 	RemoveFile(string)
 }
 
-type FileMeta struct {
-	Path    string
-	Size    int
-	ModTime time.Time
-	Hash    string
-}
-
 func (meta FileMeta) String() string {
 	return fmt.Sprintf("%q hash:%s", meta.Path, meta.Hash)
 }

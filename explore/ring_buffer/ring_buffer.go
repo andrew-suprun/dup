@@ -23,6 +23,8 @@ type RingBuffer[T any] struct {
 	buf      []T
 	capacity uint64
 	head     uint64 // Written to only by the single producer
+	mu       *sync.Mutex
+	cond     *sync.Cond
 }
 
 // NewRingBuffer creates a ring buffer with the given capacity (must be a power of 2 for optimal performance).
@@ -33,9 +35,12 @@ func NewRingBuffer[T any](capacity int) *RingBuffer[T] {
 		capPow2 <<= 1
 	}
 
+	mu := &sync.Mutex{}
 	return &RingBuffer[T]{
 		buf:      make([]T, capPow2),
 		capacity: capPow2,
+		mu:       mu,
+		cond:     sync.NewCond(mu),
 	}
 }
 
@@ -47,12 +52,9 @@ func (rb *RingBuffer[T]) NewConsumer() *Consumer {
 	}
 }
 
-// Push adds an item to the buffer. Only safe for a SINGLE producer.
-// Returns ErrBufferFull if the slowest consumer hasn't kept up and would be overwritten.
-func (rb *RingBuffer[T]) Push(item T, consumers []*Consumer) error {
+func (rb *RingBuffer[T]) Push(item T, consumers []*Consumer) {
 	head := rb.head
 
-	// Check if any consumer is too far behind (buffer is full relative to that consumer)
 	if len(consumers) > 0 {
 		minCursor := head
 		for _, c := range consumers {
@@ -61,9 +63,11 @@ func (rb *RingBuffer[T]) Push(item T, consumers []*Consumer) error {
 				minCursor = cPos
 			}
 		}
-		// If the distance between the slowest consumer and head equals capacity, we are full
-		if head-minCursor >= rb.capacity {
-			return ErrBufferFull
+
+		for head-minCursor >= rb.capacity {
+			rb.mu.Lock()
+			rb.cond.Wait()
+			rb.mu.Unlock()
 		}
 	}
 
@@ -72,6 +76,7 @@ func (rb *RingBuffer[T]) Push(item T, consumers []*Consumer) error {
 
 	// Advance the head pointer
 	atomic.StoreUint64(&rb.head, head+1)
+	rb.cond.Broadcast()
 	return nil
 }
 

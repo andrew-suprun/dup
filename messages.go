@@ -1,9 +1,41 @@
 package main
 
+import "time"
+
+type LoadMeta struct{}
+
+type Meta struct {
+	id      int
+	content string
+}
+
+type StoreMeta struct {
+	content string
+}
+
 type ScanArchive struct{}
+
+type ScannedFiles struct {
+	metas []FileMeta
+}
+
+type FileMeta struct {
+	Inode   uint64
+	Path    string
+	Size    int
+	ModTime time.Time
+	Hash    string
+}
+
 type HashFile struct {
 	Path string
 }
+
+type FileHash struct {
+	Path string
+	Hash string
+}
+
 type MoveFile struct {
 	Src  string
 	Dest string
