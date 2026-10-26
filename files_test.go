@@ -8,18 +8,26 @@ import (
 )
 
 type TestFs struct {
-	idx     int
-	script  []string
-	t       *testing.T
-	lineIdx int
+	idx      int
+	t        *testing.T
+	script   []any
+	commands <-chan any
+	events   chan<- any
+	lineIdx  int
 }
 
-func New(idx int, t *testing.T, script []string, events chan any) *TestFs {
-	return &TestFs{
-		idx:    idx,
-		script: script,
-		t:      t,
+func runTestFs(idx int, t *testing.T, script []any, commands <-chan any, events chan<- any) {
+	test := &TestFs{
+		idx:      idx,
+		script:   script,
+		commands: commands,
+		events:   events,
+		t:        t,
 	}
+	test.run()
+}
+
+func (fsys *TestFs) run() {
 }
 
 func (fsys *TestFs) LoadMetas() FileMetas {

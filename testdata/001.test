@@ -1,11 +1,15 @@
-a/a
-b/b
----
-===
-a/b
-b/a
----
-mv: a -> backup/a
-mv: b -> backup/b
-mv: backup/b -> a
-mv: backup/a -> b
+# 0
+- - command: LoadMeta
+  - event: Meta
+    meta: |
+      INode,Name,Size,ModTime,Hash
+      1,a,1,2023-03-18T14:41:38Z,aaa
+      2,b,2,,bbb
+
+# 1
+- - command: LoadMeta
+  - event: Meta
+    meta: |
+      INode,Name,Size,ModTime,Hash
+      1,b,1,2023-03-18T14:41:38Z,aaa
+      2,a,2,,bbb
