@@ -1,8 +1,7 @@
-package main
+package fs
 
 import (
 	"fmt"
-	"time"
 )
 
 type Backend interface {

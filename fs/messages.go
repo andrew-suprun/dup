@@ -1,16 +1,16 @@
-package main
+package fs
 
 import "time"
 
 type LoadMeta struct{}
 
 type Meta struct {
-	id      int
-	content string
+	Id      int
+	Content string
 }
 
 type StoreMeta struct {
-	content string
+	Content string
 }
 
 type ScanArchive struct{}

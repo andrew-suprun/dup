@@ -1,51 +1,53 @@
-package main
+package app
 
 import (
+	"dup/fs"
 	"encoding/csv"
 	"strconv"
 	"strings"
 	"time"
 )
 
-type AppState struct {
-	archiveStates []*ArchiveState
-	archiveEvents <-chan any
-	uiEvents      chan<- any
-	quit          <-chan struct{}
+type App struct {
+	archives []*Archive
+	events   <-chan any
+	quit     <-chan struct{}
+	purge    string
 }
 
-type ArchiveState struct {
+type Archive struct {
 	commands chan<- any
-	metas    []FileMeta
+	metas    []fs.FileMeta
 }
 
-func run(commands []chan<- any, events <-chan any, uiEvents chan<- any, quit <-chan struct{}) {
-	archiveStates := make([]*ArchiveState, len(commands))
-	app := &AppState{
-		uiEvents:      uiEvents,
-		quit:          make(chan struct{}),
-		archiveStates: archiveStates,
+func run(commands []chan<- any, events <-chan any, purge string, quit <-chan struct{}) {
+	archives := make([]*Archive, len(commands))
+	app := &App{
+		archives: archives,
+		events:   events,
+		purge:    purge,
+		quit:     make(chan struct{}),
 	}
 	for i, cmd := range commands {
-		app.archiveStates[i] = &ArchiveState{
+		app.archives[i] = &Archive{
 			commands: cmd,
 		}
 	}
 
-	for _, archive := range app.archiveStates {
-		archive.commands <- LoadMeta{}
+	for _, archive := range app.archives {
+		archive.commands <- fs.LoadMeta{}
 	}
 	for {
-		event := <-app.archiveEvents
+		event := <-app.events
 		switch event := event.(type) {
-		case Meta:
-			app.archiveStates[event.id].metas = parseMeta(event.content)
+		case fs.Meta:
+			app.archives[event.Id].metas = parseMeta(event.Content)
 		}
 	}
 }
 
-func parseMeta(content string) []FileMeta {
-	metas := make([]FileMeta, 0)
+func parseMeta(content string) []fs.FileMeta {
+	metas := make([]fs.FileMeta, 0)
 	records, err := csv.NewReader(strings.NewReader(content)).ReadAll()
 	if err != nil || len(records) == 0 {
 		return metas
@@ -63,7 +65,7 @@ func parseMeta(content string) []FileMeta {
 				continue
 			}
 
-			metas = append(metas, FileMeta{
+			metas = append(metas, fs.FileMeta{
 				Inode:   iNode,
 				Path:    path,
 				Size:    int(size),

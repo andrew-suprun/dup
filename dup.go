@@ -44,8 +44,8 @@ func main() {
 		fss = append(fss, NewFS(path, idx, lc, events))
 	}
 
-	backup := time.Now().Format("~~~060102-150405~~~")
-	AppState.Run(fss, backup, lc, events)
+	purge := time.Now().Format("~~~060102-150405~~~")
+	App.Run(fss, purge, lc, events)
 }
 
 func handleInterrupts(lc *Lifecycle) {
