@@ -13,3 +13,7 @@
       INode,Name,Size,ModTime,Hash
       1,b,1,2023-03-18T14:41:38Z,aaa
       2,a,2,,bbb
+
+discard
+purge
+dump
