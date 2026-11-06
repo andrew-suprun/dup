@@ -1,23 +1,23 @@
-package fs
+package archive
 
 import "time"
-
-type LoadMeta struct{}
-
-type Meta struct {
-	Id      int
-	Content string
-}
-
-type StoreMeta struct {
-	Content string
-}
 
 type ScanArchive struct{}
 
 type ScannedFiles struct {
-	metas []FileMeta
+	Idx            int
+	FilesScanned   int
+	FilesHashed    int
+	FoldersScanned int
+	FoldersToScan  int
 }
+
+type ScannedArchive struct {
+	Idx   int
+	Metas FileMetas
+}
+
+type FileMetas []FileMeta
 
 type FileMeta struct {
 	Inode   uint64
@@ -25,15 +25,6 @@ type FileMeta struct {
 	Size    int
 	ModTime time.Time
 	Hash    string
-}
-
-type HashFile struct {
-	Path string
-}
-
-type FileHash struct {
-	Path string
-	Hash string
 }
 
 type MoveFile struct {
