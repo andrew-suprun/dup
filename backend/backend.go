@@ -6,17 +6,17 @@ import (
 )
 
 type Backend interface {
-	LoadFile(path string) string
-	StoreFile(path, content string)
+	LoadMetas(base string) string
+	// StoreMetas(base, content string)
 	ScanFolder(path string) (FolderMeta, error)
 	HashFile(path string) (string, error)
-	MoveFile(src, dest string) error
-	OpenFile(path string) error
-	ReadFile([]byte) (int, error)
-	CreateFile(path string) error
-	WriteFile([]byte) error
-	CloseFile() error
-	RemoveFile(string)
+	// MoveFile(src, dest string) error
+	// OpenFile(path string) error
+	// ReadFile([]byte) (int, error)
+	// CreateFile(path string) error
+	// WriteFile([]byte) error
+	// CloseFile() error
+	// RemoveFile(string)
 }
 
 type FileMeta struct {

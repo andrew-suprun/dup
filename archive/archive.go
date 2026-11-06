@@ -4,13 +4,10 @@ import (
 	"dup/backend"
 	"encoding/csv"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
-
-const hashFileName = ".meta.csv"
 
 type Archive[B backend.Backend] struct {
 	idx      int
@@ -23,19 +20,20 @@ type Archive[B backend.Backend] struct {
 	err      error
 }
 
-func RunArchive[B backend.Backend](idx int, base, purge string, events chan<- any, quit chan struct{}) <-chan any {
+func RunArchive[B backend.Backend](idx int, base, purge string, events chan<- any, quit chan struct{}) chan<- any {
 	var backend B
+	commands := make(chan any, 2)
 	archive := &Archive[B]{
 		idx:      idx,
 		base:     base,
 		purge:    purge,
 		events:   events,
 		quit:     quit,
-		commands: make(chan any),
+		commands: commands,
 		backend:  backend,
 	}
 	go archive.run()
-	return archive.commands
+	return commands
 }
 
 func (archive *Archive[B]) run() {
@@ -60,7 +58,7 @@ func (archive *Archive[FS]) handleCommand(cmd any) {
 }
 
 func (archive *Archive[FS]) scanArchive() {
-	metasContent := archive.backend.LoadFile(filepath.Join(archive.base, hashFileName))
+	metasContent := archive.backend.LoadMetas(archive.base)
 	loadedMetas := parseMeta(metasContent)
 
 	metas := FileMetas{}

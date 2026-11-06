@@ -1,47 +1,37 @@
 package app
 
 import (
-	"dup/fs"
-	"encoding/csv"
-	"strconv"
-	"strings"
-	"time"
+	"dup/archive"
+	"fmt"
 )
 
 type App struct {
-	archives []*Archive
+	commands []chan<- any
 	events   <-chan any
 	quit     <-chan struct{}
-	purge    string
 }
 
-type Archive struct {
-	commands chan<- any
-	metas    []fs.FileMeta
-}
-
-func run(commands []chan<- any, events <-chan any, purge string, quit <-chan struct{}) {
-	archives := make([]*Archive, len(commands))
+func Run(commands []chan<- any, events <-chan any, quit <-chan struct{}) {
 	app := &App{
-		archives: archives,
+		commands: commands,
 		events:   events,
-		purge:    purge,
 		quit:     make(chan struct{}),
 	}
-	for i, cmd := range commands {
-		app.archives[i] = &Archive{
-			commands: cmd,
-		}
-	}
 
-	for _, archive := range app.archives {
-		archive.commands <- fs.LoadMeta{}
+	go app.run()
+}
+
+func (app *App) run() {
+	for _, cmd := range app.commands {
+		cmd <- archive.ScanArchive{}
 	}
 	for {
 		event := <-app.events
+		fmt.Println(event)
 		switch event := event.(type) {
-		case fs.Meta:
-			app.archives[event.Id].metas = parseMeta(event.Content)
+		case archive.ScannedFiles:
+			_ = event
+			fmt.Println("Event: archive.ScannedFile")
 		}
 	}
 }

@@ -22,20 +22,7 @@ import (
 const hashFileName = ".meta.csv"
 const bufSize = 256 * 1024
 
-type meta struct {
-	inode uint64
-	file  *FileMeta
-}
-
 type FileFS struct {
-	root   string
-	idx    int
-	lc     *Lifecycle
-	events chan any
-}
-
-func NewFS(path string, idx int, lc *Lifecycle, events chan any) *FileFS {
-	return &FileFS{root: path, idx: idx, lc: lc, events: events}
 }
 
 func (fsys *FileFS) ScanArchive() {
