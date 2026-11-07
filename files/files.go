@@ -61,7 +61,7 @@ func (f *Files) ScanFolder(path string) (backend.FolderMeta, error) {
 
 			result.Files = append(result.Files, backend.FileMeta{
 				Inode:   sys.Ino,
-				Path:    norm.NFC.String(path),
+				Path:    norm.NFC.String(name),
 				Size:    size,
 				ModTime: modTime,
 			})

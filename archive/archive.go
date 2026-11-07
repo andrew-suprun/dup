@@ -40,7 +40,7 @@ mainLoop:
 	for {
 		select {
 		case cmd, ok := <-archive.commands:
-			fmt.Println("Archive got command", cmd)
+			fmt.Printf("Archive got command: %T\n", cmd)
 			if !ok {
 				break mainLoop
 			}
@@ -104,7 +104,7 @@ func (archive *Archive[FS]) scanArchive() {
 			FilesScanned:   len(metas),
 			FilesHashed:    filesHashed,
 			FoldersScanned: foldersScanned,
-			FoldersToScan:  len(folderToScan),
+			FoldersToScan:  len(foldersToScan),
 		}
 	}
 

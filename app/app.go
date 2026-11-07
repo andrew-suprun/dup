@@ -22,18 +22,21 @@ func Run(commands []chan<- any, events <-chan any, quit <-chan struct{}) {
 }
 
 func (app *App) run() {
-	fmt.Println("App is running")
+	fmt.Println("App is running, commands", len(app.commands))
 	for _, cmd := range app.commands {
 		cmd <- archive.ScanArchive{}
 	}
 	fmt.Println("App sent scan commands")
 	for {
 		event := <-app.events
-		fmt.Println(event)
+		fmt.Printf("Event %T %#v\n", event, event)
 		switch event := event.(type) {
 		case archive.ScannedFiles:
-			_ = event
-			fmt.Println("Event: archive.ScannedFile")
+		case archive.ScannedArchive:
+			fmt.Println("Event: archive.ScannedArchive", event.Idx)
+			for _, meta := range event.Metas {
+				fmt.Println(meta)
+			}
 		}
 	}
 }

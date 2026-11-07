@@ -36,8 +36,9 @@ func main() {
 	}
 
 	purge := time.Now().Format("~~~060102-150405~~~")
-	commands := make([]chan<- any, len(os.Args)-1)
+	commands := make([]chan<- any, 0, len(os.Args)-1)
 	for idx, path := range os.Args[1:] {
+		fmt.Println("Idx", idx, "path", path)
 		err := os.MkdirAll(path, 0755)
 		if err != nil {
 			log.Printf("Failed to scan archives: %W\n", err)
