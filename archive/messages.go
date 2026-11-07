@@ -47,3 +47,7 @@ type CloseFile struct{}
 type RemoveFile struct {
 	Path string
 }
+
+type Finished struct {
+	Idx int
+}

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type Archive[B backend.Backend] struct {
@@ -17,7 +19,10 @@ type Archive[B backend.Backend] struct {
 	quit     chan struct{}
 	commands <-chan any
 	backend  B
+	metas    FileMetas
 	err      error
+
+	shouldStoreMetas bool
 }
 
 func RunArchive[B backend.Backend](idx int, base, purge string, events chan<- any, quit chan struct{}) chan<- any {
@@ -64,7 +69,6 @@ func (archive *Archive[FS]) scanArchive() {
 	metasContent := archive.backend.LoadMetas(archive.base)
 	loadedMetas := parseMeta(metasContent)
 
-	metas := FileMetas{}
 	filesHashed := 0
 	foldersToScan := []string{archive.base}
 	foldersScanned := 0
@@ -95,22 +99,23 @@ func (archive *Archive[FS]) scanArchive() {
 					break
 				}
 			}
-			metas = append(metas, fileMeta)
+			archive.metas = append(archive.metas, fileMeta)
 		}
 		foldersScanned++
 		foldersToScan = append(foldersToScan, folder.Folders...)
 		archive.events <- ScannedFiles{
 			Idx:            archive.idx,
-			FilesScanned:   len(metas),
+			FilesScanned:   len(archive.metas),
 			FilesHashed:    filesHashed,
 			FoldersScanned: foldersScanned,
 			FoldersToScan:  len(foldersToScan),
 		}
 	}
 
-	for i := range metas {
-		meta := &metas[i]
+	for i := range archive.metas {
+		meta := &archive.metas[i]
 		if meta.Hash == "" {
+			archive.shouldStoreMetas = true
 			hash, err := archive.backend.HashFile(meta.Path, meta.Size)
 			if err != nil {
 				archive.err = err
@@ -121,7 +126,7 @@ func (archive *Archive[FS]) scanArchive() {
 			filesHashed++
 			archive.events <- ScannedFiles{
 				Idx:            archive.idx,
-				FilesScanned:   len(metas),
+				FilesScanned:   len(archive.metas),
 				FilesHashed:    filesHashed,
 				FoldersScanned: foldersScanned,
 				FoldersToScan:  0,
@@ -130,12 +135,16 @@ func (archive *Archive[FS]) scanArchive() {
 	}
 	archive.events <- ScannedArchive{
 		Idx:   archive.idx,
-		Metas: metas,
+		Metas: archive.metas,
 	}
 }
 
 func (archive *Archive[FS]) shutdown() {
 	fmt.Println("TODO: shutdown archive")
+	if archive.shouldStoreMetas {
+		archive.backend.StoreMetas(archive.base, serializeMeta(archive.metas))
+	}
+	archive.events <- Finished{Idx: archive.idx}
 }
 
 func parseMeta(content []byte) FileMetas {
@@ -167,4 +176,26 @@ func parseMeta(content []byte) FileMetas {
 		}
 	}
 	return metas
+}
+
+func serializeMeta(metas FileMetas) []byte {
+	result := make([][]string, 1, len(metas)+1)
+	result[0] = []string{"INode", "Name", "Size", "ModTime", "Hash"}
+
+	for _, meta := range metas {
+		if meta.Hash == "" {
+			continue
+		}
+		result = append(result, []string{
+			fmt.Sprint(meta.Inode),
+			norm.NFC.String(meta.Path),
+			fmt.Sprint(meta.Size),
+			meta.ModTime.UTC().Format(time.RFC3339Nano),
+			meta.Hash,
+		})
+	}
+
+	buffer := bytes.Buffer{}
+	csv.NewWriter(&buffer).WriteAll(result)
+	return buffer.Bytes()
 }
