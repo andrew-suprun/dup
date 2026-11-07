@@ -22,7 +22,7 @@ type FileMetas []FileMeta
 type FileMeta struct {
 	Inode   uint64
 	Path    string
-	Size    int
+	Size    int64
 	ModTime time.Time
 	Hash    string
 }

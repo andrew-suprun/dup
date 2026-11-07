@@ -18,13 +18,15 @@ func Run(commands []chan<- any, events <-chan any, quit <-chan struct{}) {
 		quit:     make(chan struct{}),
 	}
 
-	go app.run()
+	app.run()
 }
 
 func (app *App) run() {
+	fmt.Println("App is running")
 	for _, cmd := range app.commands {
 		cmd <- archive.ScanArchive{}
 	}
+	fmt.Println("App sent scan commands")
 	for {
 		event := <-app.events
 		fmt.Println(event)

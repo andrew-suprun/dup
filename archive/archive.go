@@ -1,11 +1,11 @@
 package archive
 
 import (
+	"bytes"
 	"dup/backend"
 	"encoding/csv"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -21,7 +21,6 @@ type Archive[B backend.Backend] struct {
 }
 
 func RunArchive[B backend.Backend](idx int, base, purge string, events chan<- any, quit chan struct{}) chan<- any {
-	var backend B
 	commands := make(chan any, 2)
 	archive := &Archive[B]{
 		idx:      idx,
@@ -30,17 +29,21 @@ func RunArchive[B backend.Backend](idx int, base, purge string, events chan<- an
 		events:   events,
 		quit:     quit,
 		commands: commands,
-		backend:  backend,
 	}
 	go archive.run()
 	return commands
 }
 
 func (archive *Archive[B]) run() {
+	fmt.Println("Archive is running")
 mainLoop:
 	for {
 		select {
-		case cmd := <-archive.commands:
+		case cmd, ok := <-archive.commands:
+			fmt.Println("Archive got command", cmd)
+			if !ok {
+				break mainLoop
+			}
 			archive.handleCommand(cmd)
 		case <-archive.quit:
 			break mainLoop
@@ -108,7 +111,7 @@ func (archive *Archive[FS]) scanArchive() {
 	for i := range metas {
 		meta := &metas[i]
 		if meta.Hash == "" {
-			hash, err := archive.backend.HashFile(meta.Path)
+			hash, err := archive.backend.HashFile(meta.Path, meta.Size)
 			if err != nil {
 				archive.err = err
 				archive.events <- archive.err
@@ -135,9 +138,9 @@ func (archive *Archive[FS]) shutdown() {
 	fmt.Println("TODO: shutdown archive")
 }
 
-func parseMeta(content string) FileMetas {
+func parseMeta(content []byte) FileMetas {
 	metas := make(FileMetas, 0)
-	records, err := csv.NewReader(strings.NewReader(content)).ReadAll()
+	records, err := csv.NewReader(bytes.NewReader(content)).ReadAll()
 	if err != nil || len(records) == 0 {
 		return metas
 	}
@@ -146,7 +149,7 @@ func parseMeta(content string) FileMetas {
 		if len(record) == 5 {
 			iNode, er1 := strconv.ParseUint(record[0], 10, 64)
 			path := record[1]
-			size, er2 := strconv.ParseUint(record[2], 10, 64)
+			size, er2 := strconv.ParseInt(record[2], 10, 64)
 			modTime, er3 := time.Parse(time.RFC3339, record[3])
 			modTime = modTime.UTC().Round(time.Second)
 			hash := record[4]
@@ -157,7 +160,7 @@ func parseMeta(content string) FileMetas {
 			metas = append(metas, FileMeta{
 				Inode:   iNode,
 				Path:    path,
-				Size:    int(size),
+				Size:    size,
 				ModTime: modTime,
 				Hash:    hash,
 			})

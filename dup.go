@@ -9,7 +9,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 func main() {
@@ -50,6 +53,21 @@ func main() {
 	}
 
 	app.Run(commands, events, quit)
+}
+
+func AbsPath(path string) (string, error) {
+	var err error
+	path, err = filepath.Abs(path)
+	path = norm.NFC.String(path)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 func handleInterrupts(quit chan struct{}) {

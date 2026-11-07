@@ -342,18 +342,3 @@ func (fsys *FileFS) hashFile(meta *FileMeta) string {
 
 	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
 }
-
-func AbsPath(path string) (string, error) {
-	var err error
-	path, err = filepath.Abs(path)
-	path = norm.NFC.String(path)
-	if err != nil {
-		return "", err
-	}
-
-	_, err = os.Stat(path)
-	if err != nil {
-		return "", err
-	}
-	return path, nil
-}
