@@ -6,6 +6,7 @@ import (
 	"dup/dump"
 	"encoding/csv"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -148,7 +149,13 @@ func (archive *Archive[FS]) tidyUp(metas FileMetas) {
 	selfMetas := byHashPath(archive.metas)
 	originMetas := byHashPath(metas)
 	fmt.Printf("SELF: %s\nORIGIN: %s\n", dump.Dump(selfMetas), dump.Dump(originMetas))
-
+	for hash, metaMap := range selfMetas {
+		if _, ok := originMetas[hash]; !ok {
+			for path := range metaMap {
+				archive.purgeFile(path)
+			}
+		}
+	}
 }
 
 func byHashPath(metas FileMetas) ByHashPath {
@@ -164,6 +171,13 @@ func byHashPath(metas FileMetas) ByHashPath {
 		}
 	}
 	return result
+}
+
+func (archive *Archive[FS]) purgeFile(path string) {
+	archive.backend.MoveFile(
+		filepath.Join(archive.base, path),
+		filepath.Join(archive.base, archive.purge, path),
+	)
 }
 
 func (archive *Archive[FS]) shutdown() {

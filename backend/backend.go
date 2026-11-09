@@ -10,7 +10,7 @@ type Backend interface {
 	StoreMetas(base string, content []byte)
 	ScanFolder(path string) (FolderMeta, error)
 	HashFile(path string, size int64) (string, error)
-	// MoveFile(src, dest string) error
+	MoveFile(src, dest string) error
 	// OpenFile(path string) error
 	// ReadFile([]byte) (int, error)
 	// CreateFile(path string) error

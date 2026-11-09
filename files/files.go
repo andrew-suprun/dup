@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"dup/backend"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -98,4 +99,9 @@ func (f *Files) HashFile(path string, size int64) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil)), nil
+}
+
+func (f *Files) MoveFile(src, dest string) error {
+	fmt.Printf("Moving %q to %q\n", src, dest)
+	return nil
 }
