@@ -17,6 +17,15 @@ type ScannedArchive struct {
 	Metas FileMetas
 }
 
+type TidyUp struct {
+	Metas FileMetas
+}
+
+type MissingHashes struct {
+	Idx    int
+	Hashes []uint64
+}
+
 type FileMetas []FileMeta
 
 type FileMeta struct {

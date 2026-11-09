@@ -49,8 +49,13 @@ func (app *App) run() {
 			for _, meta := range event.Metas {
 				fmt.Println(meta)
 			}
+			if event.Idx == 0 {
+				for _, cmd := range app.commands[1:] {
+					cmd <- archive.TidyUp{Metas: event.Metas}
+				}
+			}
 
-			close(app.commands[event.Idx]) // TODO temporary
+			// close(app.commands[event.Idx]) // TODO temporary
 		case archive.Finished:
 			fmt.Println("Event: archive.Finished", event.Idx)
 			app.finished[event.Idx] = true

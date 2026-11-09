@@ -3,6 +3,7 @@ package archive
 import (
 	"bytes"
 	"dup/backend"
+	"dup/dump"
 	"encoding/csv"
 	"fmt"
 	"strconv"
@@ -24,6 +25,8 @@ type Archive[B backend.Backend] struct {
 
 	shouldStoreMetas bool
 }
+
+type ByHashPath map[string]map[string]*FileMeta
 
 func RunArchive[B backend.Backend](idx int, base, purge string, events chan<- any, quit chan struct{}) chan<- any {
 	commands := make(chan any, 2)
@@ -62,6 +65,8 @@ func (archive *Archive[FS]) handleCommand(cmd any) {
 	case ScanArchive:
 		_ = cmd
 		archive.scanArchive()
+	case TidyUp:
+		archive.tidyUp(cmd.Metas)
 	}
 }
 
@@ -137,6 +142,28 @@ func (archive *Archive[FS]) scanArchive() {
 		Idx:   archive.idx,
 		Metas: archive.metas,
 	}
+}
+
+func (archive *Archive[FS]) tidyUp(metas FileMetas) {
+	selfMetas := byHashPath(archive.metas)
+	originMetas := byHashPath(metas)
+	fmt.Printf("SELF: %s\nORIGIN: %s\n", dump.Dump(selfMetas), dump.Dump(originMetas))
+
+}
+
+func byHashPath(metas FileMetas) ByHashPath {
+	result := ByHashPath{}
+	for i := range metas {
+		meta := &metas[i]
+		if metaMap, ok := result[meta.Hash]; ok {
+			metaMap[meta.Path] = meta
+		} else {
+			result[meta.Hash] = map[string]*FileMeta{
+				meta.Path: meta,
+			}
+		}
+	}
+	return result
 }
 
 func (archive *Archive[FS]) shutdown() {
