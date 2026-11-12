@@ -3,6 +3,7 @@ module dup
 go 1.27.1
 
 require (
+	github.com/pkg/xattr v0.4.12
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/term v0.47.0
 	golang.org/x/text v0.42.0
