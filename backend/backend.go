@@ -6,10 +6,7 @@ import (
 )
 
 type Backend interface {
-	LoadMetas(base string) []byte
-	StoreMetas(base string, content []byte)
 	ScanFolder(path string) (FolderMeta, error)
-	HashFile(path string, size int64) (string, error)
 	MoveFile(src, dest string) error
 	// OpenFile(path string) error
 	// ReadFile([]byte) (int, error)
@@ -20,21 +17,19 @@ type Backend interface {
 }
 
 type FileMeta struct {
-	Inode   uint64
 	Path    string
 	Size    int64
 	ModTime time.Time
+	Hash    string
 }
 
+type FileMetas []FileMeta
+
 type FolderMeta struct {
-	Files   []FileMeta
+	Metas   FileMetas
 	Folders []string
 }
 
 func (meta FileMeta) String() string {
 	return fmt.Sprintf("%q", meta.Path)
 }
-
-// Events
-
-type FileMetas []FileMeta

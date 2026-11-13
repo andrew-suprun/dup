@@ -38,5 +38,5 @@ func main() {
 	// getXattrs("./qwerty/abc.txt")
 	// getXattrs("./qwerty/abc copy.txt")
 	// getXattrs("./qwerty/abc copy 2.txt")
-	getXattrs("/Users/andrewsuprun")
+	getXattrs("..")
 }

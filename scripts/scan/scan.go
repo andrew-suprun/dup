@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/fs"
@@ -53,17 +54,19 @@ func scan(paths *[]string) {
 }
 
 const bufSize int64 = 256 * 1024
+const version int64 = 0
 
 func hash(path string, info fs.FileInfo) (string, error) {
 	data, err := xattr.Get(path, ".dup.meta.")
 	if err == nil {
 		record := strings.Split(string(data), ",")
-		if len(record) == 3 {
-			size, _ := strconv.ParseInt(record[0], 10, 64)
-			modTime, _ := time.Parse(time.RFC3339, record[1])
+		if len(record) == 4 {
+			v, _ := strconv.ParseInt(record[0], 10, 64)
+			size, _ := strconv.ParseInt(record[1], 10, 64)
+			modTime, _ := time.Parse(time.RFC3339, record[2])
 			modTime = modTime.UTC().Round(time.Second)
-			hash := record[2]
-			if size == info.Size() && modTime.Equal(info.ModTime()) && hash != "" {
+			hash := record[3]
+			if v == version && size == info.Size() && modTime.Equal(info.ModTime()) && hash != "" {
 				return hash, nil
 			}
 		}
@@ -71,6 +74,8 @@ func hash(path string, info fs.FileInfo) (string, error) {
 
 	hash := sha256.New()
 	buf := make([]byte, bufSize)
+	binary.LittleEndian.PutUint64(buf, uint64(info.Size()))
+	hash.Write(buf[:8])
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -86,17 +91,17 @@ func hash(path string, info fs.FileInfo) (string, error) {
 	if er != nil && er != io.EOF {
 		return "", err
 	}
-	hash.Write(buf[0:nr])
+	hash.Write(buf[:nr])
 	if info.Size() > bufSize {
 		nr, er := file.ReadAt(buf, offset)
 		if er != nil && er != io.EOF {
 			return "", er
 		}
-		hash.Write(buf[0:nr])
+		hash.Write(buf[:nr])
 	}
 
 	strHash := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
-	meta := fmt.Sprintf("%d,%s,%s", info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano), strHash)
+	meta := fmt.Sprintf("%d,%d,%s,%s", version, info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano), strHash)
 	xattr.Set(path, ".dup.meta.", []byte(meta))
 	return strHash, nil
 }
