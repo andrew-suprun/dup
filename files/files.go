@@ -18,9 +18,55 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-type Files struct{}
+type ScannedFiles struct {
+	Idx            int
+	FilesScanned   int
+	FoldersScanned int
+	FoldersToScan  int
+}
 
-func (f *Files) ScanFolder(path string) (backend.FolderMeta, error) {
+type ScannedArchive struct {
+	Idx   int
+	Metas backend.FileMetas
+}
+
+func ScanArchive(idx int, root string, events chan<- any, quit <-chan struct{}) {
+	foldersToScan := []string{root}
+	foldersScanned := 0
+	metas := backend.FileMetas{}
+	for len(foldersToScan) > 0 {
+		select {
+		case <-quit:
+			return
+		default:
+		}
+		folderToScan := foldersToScan[0]
+		foldersToScan = foldersToScan[1:]
+		folder, err := scanFolder(folderToScan)
+		if err != nil {
+			events <- err
+			return
+		}
+
+		metas = append(metas, folder.Metas...)
+
+		foldersScanned++
+		foldersToScan = append(foldersToScan, folder.Folders...)
+		events <- ScannedFiles{
+			Idx:            idx,
+			FilesScanned:   len(metas),
+			FoldersScanned: foldersScanned,
+			FoldersToScan:  len(foldersToScan),
+		}
+	}
+
+	events <- ScannedArchive{
+		Idx:   idx,
+		Metas: metas,
+	}
+}
+
+func scanFolder(path string) (backend.FolderMeta, error) {
 	result := backend.FolderMeta{}
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -116,9 +162,4 @@ func hashFile(path string, info fs.FileInfo) (string, error) {
 	meta := fmt.Sprintf("%d,%d,%s,%s", version, info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano), strHash)
 	xattr.Set(path, ".dup.meta.", []byte(meta))
 	return strHash, nil
-}
-
-func (f *Files) MoveFile(src, dest string) error {
-	fmt.Printf("Moving %q to %q\n", src, dest)
-	return nil
 }
