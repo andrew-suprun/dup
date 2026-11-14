@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 func Dump(v interface{}) string {
@@ -67,6 +68,12 @@ func (p *printer) format(val reflect.Value, depth int) {
 
 	case reflect.Struct:
 		t := val.Type()
+
+		if t == reflect.TypeFor[time.Time]() {
+			fmt.Fprintf(p.writer, "%v", val.Interface().(time.Time).Format(time.RFC3339))
+			return
+		}
+
 		fmt.Fprintf(p.writer, "%s {\n", t.Name())
 		for i := 0; i < val.NumField(); i++ {
 			fieldVal := val.Field(i)

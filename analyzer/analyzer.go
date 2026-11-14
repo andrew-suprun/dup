@@ -1,18 +1,9 @@
 package analyzer
 
 import (
+	"dup/metas"
 	"fmt"
-	"time"
 )
-
-type FileMeta struct {
-	Path    string
-	Size    int64
-	ModTime time.Time
-	Hash    string
-}
-
-type FileMetas []FileMeta
 
 type Analysis struct {
 	Purge []string
@@ -25,7 +16,14 @@ type Move struct {
 	To   string
 }
 
-func Analyze(origin FileMetas, copy FileMetas) Analysis {
+type ByHashPath map[string]map[string]MetaLink
+
+type MetaLink struct {
+	Meta *metas.FileMeta
+	Link *metas.FileMeta
+}
+
+func Analyze(origin metas.FileMetas, copy metas.FileMetas) Analysis {
 	originMetas := byHashPath(origin)
 	copyMetas := byHashPath(copy)
 	result := Analysis{}
@@ -41,18 +39,14 @@ func Analyze(origin FileMetas, copy FileMetas) Analysis {
 	return result
 }
 
-type ByHashPath map[string]map[string]*FileMeta
-
-func byHashPath(metas FileMetas) ByHashPath {
+func byHashPath(fileMetas metas.FileMetas) ByHashPath {
 	result := ByHashPath{}
-	for i := range metas {
-		meta := &metas[i]
+	for i := range fileMetas {
+		meta := &fileMetas[i]
 		if metaMap, ok := result[meta.Hash]; ok {
-			metaMap[meta.Path] = meta
+			metaMap[meta.Path] = MetaLink{Meta: meta}
 		} else {
-			result[meta.Hash] = map[string]*FileMeta{
-				meta.Path: meta,
-			}
+			result[meta.Hash] = map[string]MetaLink{meta.Path: {Meta: meta}}
 		}
 	}
 	return result

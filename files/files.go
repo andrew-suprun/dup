@@ -2,7 +2,7 @@ package files
 
 import (
 	"crypto/sha256"
-	"dup/backend"
+	"dup/metas"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
@@ -18,22 +18,27 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-type ScannedFiles struct {
+type FolderScanned struct {
 	Idx            int
 	FilesScanned   int
 	FoldersScanned int
 	FoldersToScan  int
 }
 
-type ScannedArchive struct {
+type ArchiveScanned struct {
 	Idx   int
-	Metas backend.FileMetas
+	Metas metas.FileMetas
+}
+
+type FolderMeta struct {
+	Metas   metas.FileMetas
+	Folders []string
 }
 
 func ScanArchive(idx int, root string, events chan<- any, quit <-chan struct{}) {
 	foldersToScan := []string{root}
 	foldersScanned := 0
-	metas := backend.FileMetas{}
+	metas := metas.FileMetas{}
 	for len(foldersToScan) > 0 {
 		select {
 		case <-quit:
@@ -52,7 +57,7 @@ func ScanArchive(idx int, root string, events chan<- any, quit <-chan struct{}) 
 
 		foldersScanned++
 		foldersToScan = append(foldersToScan, folder.Folders...)
-		events <- ScannedFiles{
+		events <- FolderScanned{
 			Idx:            idx,
 			FilesScanned:   len(metas),
 			FoldersScanned: foldersScanned,
@@ -60,14 +65,14 @@ func ScanArchive(idx int, root string, events chan<- any, quit <-chan struct{}) 
 		}
 	}
 
-	events <- ScannedArchive{
+	events <- ArchiveScanned{
 		Idx:   idx,
 		Metas: metas,
 	}
 }
 
-func scanFolder(path string) (backend.FolderMeta, error) {
-	result := backend.FolderMeta{}
+func scanFolder(path string) (FolderMeta, error) {
+	result := FolderMeta{}
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return result, err
@@ -100,7 +105,7 @@ func scanFolder(path string) (backend.FolderMeta, error) {
 				return result, nil
 			}
 
-			result.Metas = append(result.Metas, backend.FileMeta{
+			result.Metas = append(result.Metas, metas.FileMeta{
 				Path:    norm.NFC.String(childPath),
 				Size:    size,
 				ModTime: modTime,

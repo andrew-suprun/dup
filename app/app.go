@@ -2,7 +2,9 @@ package app
 
 import (
 	"dup/analyzer"
+	"dup/dump"
 	"dup/files"
+	"dup/metas"
 
 	"golang.org/x/text/unicode/norm"
 
@@ -21,18 +23,6 @@ type App struct {
 	events      chan any
 	quit        chan struct{}
 	finished    []bool
-}
-
-type FilesScanned struct {
-	Idx            int
-	FilesScanned   int
-	FoldersScanned int
-	FoldersToScan  int
-}
-
-type ArchiveScanned struct {
-	Idx   int
-	Metas analyzer.FileMetas
 }
 
 func Run() {
@@ -84,28 +74,39 @@ func (app *App) run() {
 		go files.ScanArchive(idx, root, app.events, app.quit)
 	}
 	scanned := make([]bool, len(app.roots))
-	metas := make([]analyzer.FileMetas, len(app.roots))
-	analyses := make([]*analyzer.Analysis, len(app.roots))
+	metas := make([]metas.FileMetas, len(app.roots))
+	analyses := make([]analyzer.Analysis, len(app.roots))
+scanLoop:
 	for {
 		event := <-app.events
+		fmt.Printf("Event: %T %s\n", event, dump.Dump(event))
 		switch event := event.(type) {
-		case FilesScanned:
-			fmt.Printf("Event: archive.ScannedFiles %#v\n", event)
-		case ArchiveScanned:
-			fmt.Println("Event: archive.ScannedArchive", event.Idx)
-			for _, meta := range event.Metas {
-				fmt.Println(meta)
-			}
+		case files.FolderScanned:
+			// TODO UI
+		case files.ArchiveScanned:
+			metas[event.Idx] = event.Metas
+			scanned[event.Idx] = true
 			if event.Idx == 0 {
 				for i := range app.roots[1:] {
-					if scanned[i] {
-						analyses[i] = analyzer.Analyze(metas[0], metas[i])
+					idx := i + 1
+					if scanned[idx] {
+						analyses[idx] = analyzer.Analyze(metas[0], metas[idx])
 					}
 				}
 			} else {
 				if scanned[0] {
 					analyses[event.Idx] = analyzer.Analyze(metas[0], metas[event.Idx])
 				}
+			}
+			allScanned := true
+			for _, s := range scanned {
+				if !s {
+					allScanned = false
+					break
+				}
+			}
+			if allScanned {
+				break scanLoop
 			}
 
 		case error:
@@ -116,6 +117,8 @@ func (app *App) run() {
 			log.Panicf("### Unexpected Event: %T", event)
 		}
 	}
+
+	fmt.Println(dump.Dump(analyses))
 }
 
 func AbsPath(path string) (string, error) {

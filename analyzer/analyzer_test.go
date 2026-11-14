@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"dup/dump"
+	"dup/metas"
 	"fmt"
 	"reflect"
 	"testing"
@@ -9,11 +10,11 @@ import (
 )
 
 func TestPurgeBbb(t *testing.T) {
-	origin := FileMetas{
+	origin := metas.FileMetas{
 		{"a/b/c", 12, time.Time{}, "123"},
 		{"aaa", 13, time.Time{}, "234"},
 	}
-	copy := FileMetas{
+	copy := metas.FileMetas{
 		{"aaa", 13, time.Time{}, "234"},
 		{"bbb", 14, time.Time{}, "345"},
 	}
