@@ -9,24 +9,27 @@ import (
 	"time"
 )
 
-func Test(t *testing.T) {
+func TestAnalysis(t *testing.T) {
 	origin := metas.FileMetas{
 		{"a/b/c", 12, time.Time{}, "123"},
-		{"aaa", 13, time.Time{}, "234"},
-		{"bbb", 14, time.Time{}, "777"},
+		{"1/aaa", 13, time.Time{}, "234"},
+		{"2/bbb", 14, time.Time{}, "777"},
+		{"qqq", 15, time.Time{}, "15"},
 	}
 	copy := metas.FileMetas{
-		{"aaa", 14, time.Time{}, "777"},
-		{"bbb", 13, time.Time{}, "234"},
+		{"1/aaa", 14, time.Time{}, "777"},
+		{"2/bbb", 13, time.Time{}, "234"},
 		{"xxx", 14, time.Time{}, "345"},
+		{"www", 15, time.Time{}, "15"},
+		{"eee", 15, time.Time{}, "15"},
 	}
 	analysis := Analyze(origin, copy)
 	expected := Analysis{
-		Purge: []string{"xxx"},
+		Purge: []string{"xxx", "eee"},
 		Move: []Move{
-			{From: "bbb", To: "temp-bbb"},
-			{From: "aaa", To: "bbb"},
-			{From: "temp-bbb", To: "aaa"},
+			{From: "2/bbb", To: "2/temp-bbb"},
+			{From: "1/aaa", To: "2/bbb"},
+			{From: "2/temp-bbb", To: "1/aaa"},
 		},
 		Copy: []string{"a/b/c"},
 	}

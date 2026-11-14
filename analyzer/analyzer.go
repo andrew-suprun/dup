@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"dup/dump"
 	"dup/metas"
 	"fmt"
 )
@@ -30,14 +31,10 @@ func Analyze(origin metas.FileMetas, copy metas.FileMetas) Analysis {
 	for hash, copyMetaMap := range copyMetas {
 		if originMetaMap, ok := originMetas[hash]; ok {
 			linkMetaMaps(originMetaMap, copyMetaMap)
-		} else {
-			for path := range copyMetaMap {
-				fmt.Println("purge", path)
-				result.Purge = append(result.Purge, path)
-			}
 		}
 	}
 
+	filesToPurge(copyMetas, &result)
 	filesToCopy(originMetas, &result)
 
 	return result
@@ -47,6 +44,9 @@ func linkMetaMaps(originMetaMap map[string]*MetaLink, copyMetaMap map[string]*Me
 	for _, copyMetaLink := range copyMetaMap {
 		var originMetaLink *MetaLink
 		for _, link := range originMetaMap {
+			if link.Link != nil {
+				continue
+			}
 			if originMetaLink == nil {
 				originMetaLink = link
 			} else if link.Meta.Path == copyMetaLink.Meta.Path {
@@ -57,6 +57,18 @@ func linkMetaMaps(originMetaMap map[string]*MetaLink, copyMetaMap map[string]*Me
 		if originMetaLink != nil {
 			originMetaLink.Link = copyMetaLink.Meta
 			copyMetaLink.Link = originMetaLink.Meta
+		}
+	}
+}
+
+func filesToPurge(copyMeta ByHashPath, analysis *Analysis) {
+	for _, copyMetaMap := range copyMeta {
+		for _, copyMetaLink := range copyMetaMap {
+			fmt.Println("LINK", dump.Dump(copyMetaLink))
+			if copyMetaLink.Link == nil {
+				analysis.Purge = append(analysis.Purge, copyMetaLink.Meta.Path)
+				fmt.Println("purge:", copyMetaLink.Meta.Path)
+			}
 		}
 	}
 }
