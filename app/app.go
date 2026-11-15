@@ -2,7 +2,6 @@ package app
 
 import (
 	"dup/analyzer"
-	"dup/dump"
 	"dup/files"
 	"dup/metas"
 
@@ -51,8 +50,7 @@ func Run() {
 		finished:    make([]bool, len(os.Args)-1),
 	}
 
-	for idx, path := range os.Args[1:] {
-		fmt.Println("Idx", idx, "path", path)
+	for _, path := range os.Args[1:] {
 		err := os.MkdirAll(path, 0755)
 		if err != nil {
 			log.Printf("Failed to scan archives: %W\n", err)
@@ -79,9 +77,10 @@ func (app *App) run() {
 scanLoop:
 	for {
 		event := <-app.events
-		fmt.Printf("Event: %T %s\n", event, dump.Dump(event))
+		// fmt.Printf("Event: %T %s\n", event, dump.Dump(event))
 		switch event := event.(type) {
 		case files.FolderScanned:
+			fmt.Printf("files: %d | folders: %d | pending: %d\n", event.FilesScanned, event.FoldersScanned, event.FoldersToScan)
 			// TODO UI
 		case files.ArchiveScanned:
 			metas[event.Idx] = event.Metas
@@ -110,7 +109,7 @@ scanLoop:
 			}
 
 		case error:
-			fmt.Println(event)
+			fmt.Println("ERROR", event)
 			close(app.quit)
 
 		default:
@@ -118,7 +117,7 @@ scanLoop:
 		}
 	}
 
-	fmt.Println(dump.Dump(analyses))
+	// fmt.Println(dump.Dump(analyses))
 }
 
 func AbsPath(path string) (string, error) {

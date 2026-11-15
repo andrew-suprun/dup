@@ -4,6 +4,7 @@ import (
 	"dup/dump"
 	"dup/metas"
 	"fmt"
+	"strings"
 )
 
 type Analysis struct {
@@ -24,6 +25,11 @@ type MetaLink struct {
 	Link *metas.FileMeta
 }
 
+type Branch struct {
+	Links         map[string]*MetaLink
+	ChildBranches map[string]*Branch
+}
+
 func Analyze(origin metas.FileMetas, copy metas.FileMetas) Analysis {
 	originMetas := byHashPath(origin)
 	copyMetas := byHashPath(copy)
@@ -35,8 +41,12 @@ func Analyze(origin metas.FileMetas, copy metas.FileMetas) Analysis {
 	}
 
 	filesToPurge(copyMetas, &result)
-	filesToCopy(originMetas, &result)
 
+	fmt.Println("METAS", dump.Dump(origin))
+	root := buildTree(originMetas)
+	fmt.Println("TREE:", dump.Dump(root))
+
+	filesToCopy(originMetas, &result)
 	return result
 }
 
@@ -61,13 +71,39 @@ func linkMetaMaps(originMetaMap map[string]*MetaLink, copyMetaMap map[string]*Me
 	}
 }
 
+func buildTree(metas ByHashPath) *Branch {
+	root := &Branch{
+		Links:         map[string]*MetaLink{},
+		ChildBranches: map[string]*Branch{},
+	}
+	for _, metaMap := range metas {
+		for _, metaLink := range metaMap {
+			branch := root
+			components := strings.Split(metaLink.Meta.Path, "/")
+			for _, component := range components[:len(components)-1] {
+				if childBranch, ok := branch.ChildBranches[component]; ok {
+					branch = childBranch
+				} else {
+					childBranch := &Branch{
+						Links:         map[string]*MetaLink{},
+						ChildBranches: map[string]*Branch{},
+					}
+					branch.ChildBranches[component] = childBranch
+					branch = childBranch
+				}
+			}
+			branch.Links[components[len(components)-1]] = metaLink
+		}
+	}
+
+	return root
+}
+
 func filesToPurge(copyMeta ByHashPath, analysis *Analysis) {
 	for _, copyMetaMap := range copyMeta {
 		for _, copyMetaLink := range copyMetaMap {
-			fmt.Println("LINK", dump.Dump(copyMetaLink))
 			if copyMetaLink.Link == nil {
 				analysis.Purge = append(analysis.Purge, copyMetaLink.Meta.Path)
-				fmt.Println("purge:", copyMetaLink.Meta.Path)
 			}
 		}
 	}
@@ -78,7 +114,6 @@ func filesToCopy(originMeta ByHashPath, analysis *Analysis) {
 		for _, originMetaLink := range originMetaMap {
 			if originMetaLink.Link == nil {
 				analysis.Copy = append(analysis.Copy, originMetaLink.Meta.Path)
-				fmt.Println("copy:", originMetaLink.Meta.Path)
 			}
 		}
 	}

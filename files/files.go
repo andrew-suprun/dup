@@ -84,7 +84,7 @@ func scanFolder(path string) (FolderMeta, error) {
 				result.Folders = append(result.Folders, childPath)
 			}
 		} else {
-			if !entry.Type().IsRegular() || entry.Name() == ".DS_Store" {
+			if !entry.Type().IsRegular() || entry.Name() == ".DS_Store" || strings.HasPrefix(entry.Name(), "._") {
 				continue
 			}
 			info, err := entry.Info()
