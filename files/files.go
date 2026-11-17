@@ -26,19 +26,17 @@ type FolderScanned struct {
 }
 
 type ArchiveScanned struct {
-	Idx   int
-	Metas metas.FileMetas
-}
-
-type FolderMeta struct {
-	Metas   metas.FileMetas
-	Folders []string
+	Idx         int
+	FolderMetas metas.FolderMetas
+	FileMetas   metas.FileMetas
 }
 
 func ScanArchive(idx int, root string, events chan<- any, quit <-chan struct{}) {
+	rootPrefixLen := len(root) + 1
 	foldersToScan := []string{root}
 	foldersScanned := 0
-	metas := metas.FileMetas{}
+	result := ArchiveScanned{Idx: idx}
+
 	for len(foldersToScan) > 0 {
 		select {
 		case <-quit:
@@ -47,89 +45,97 @@ func ScanArchive(idx int, root string, events chan<- any, quit <-chan struct{}) 
 		}
 		folderToScan := foldersToScan[0]
 		foldersToScan = foldersToScan[1:]
-		folder, err := scanFolder(folderToScan)
+
+		entries, err := os.ReadDir(folderToScan)
+		if err != nil {
+			events <- err
+			return
+		}
+		for _, entry := range entries {
+			childPath := filepath.Join(folderToScan, entry.Name())
+			if entry.IsDir() {
+				if !strings.HasPrefix(entry.Name(), "~~~") {
+					data, err := xattr.Get(childPath, ".dup.meta.")
+					record := strings.Split(string(data), ",")
+					if len(record) == folderMetaFields && record[0] == folderMetaVersion && err == nil {
+						result.FolderMetas = append(result.FolderMetas, metas.FolderMeta{
+							Path: childPath[rootPrefixLen:],
+							Id:   record[1],
+						})
+					} else {
+						result.FolderMetas = append(result.FolderMetas, metas.FolderMeta{
+							Path: childPath[rootPrefixLen:],
+						})
+					}
+					foldersToScan = append(foldersToScan, childPath)
+				}
+			} else {
+				if !entry.Type().IsRegular() || entry.Name() == ".DS_Store" || strings.HasPrefix(entry.Name(), "._") {
+					continue
+				}
+				info, err := entry.Info()
+				if err != nil {
+					events <- err
+					return
+				}
+
+				size := info.Size()
+				if size == 0 {
+					continue
+				}
+
+				modTime := info.ModTime()
+				modTime = modTime.UTC().Round(time.Second)
+
+				hash, err := hashFile(childPath, info)
+				if err != nil {
+					events <- err
+					return
+				}
+
+				result.FileMetas = append(result.FileMetas, metas.FileMeta{
+					Path:    norm.NFC.String(childPath),
+					Size:    size,
+					ModTime: modTime,
+					Hash:    hash,
+				})
+			}
+		}
+
 		if err != nil {
 			events <- err
 			return
 		}
 
-		metas = append(metas, folder.Metas...)
-
 		foldersScanned++
-		foldersToScan = append(foldersToScan, folder.Folders...)
 		events <- FolderScanned{
 			Idx:            idx,
-			FilesScanned:   len(metas),
+			FilesScanned:   len(result.FileMetas),
 			FoldersScanned: foldersScanned,
 			FoldersToScan:  len(foldersToScan),
 		}
 	}
 
-	events <- ArchiveScanned{
-		Idx:   idx,
-		Metas: metas,
-	}
-}
-
-func scanFolder(path string) (FolderMeta, error) {
-	result := FolderMeta{}
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return result, err
-	}
-	for _, entry := range entries {
-		childPath := filepath.Join(path, entry.Name())
-		if entry.IsDir() {
-			if !strings.HasPrefix(entry.Name(), "~~~") {
-				result.Folders = append(result.Folders, childPath)
-			}
-		} else {
-			if !entry.Type().IsRegular() || entry.Name() == ".DS_Store" || strings.HasPrefix(entry.Name(), "._") {
-				continue
-			}
-			info, err := entry.Info()
-			if err != nil {
-				return result, nil
-			}
-
-			size := info.Size()
-			if size == 0 {
-				return result, nil
-			}
-
-			modTime := info.ModTime()
-			modTime = modTime.UTC().Round(time.Second)
-
-			hash, err := hashFile(childPath, info)
-			if err != nil {
-				return result, nil
-			}
-
-			result.Metas = append(result.Metas, metas.FileMeta{
-				Path:    norm.NFC.String(childPath),
-				Size:    size,
-				ModTime: modTime,
-				Hash:    hash,
-			})
-		}
-	}
-	return result, nil
+	events <- result
 }
 
 const bufSize int64 = 256 * 1024
-const version int64 = 0
+const folderMetaFields = 2
+const folderMetaVersion = "v1"
+const fileMetaFields = 4
+const fileMetaVersion = "v1"
 
 func hashFile(path string, info fs.FileInfo) (string, error) {
 	data, err := xattr.Get(path, ".dup.meta.")
 	if err == nil {
 		record := strings.Split(string(data), ",")
-		if len(record) == 4 {
-			v, _ := strconv.ParseInt(record[0], 10, 64)
+		if len(record) == fileMetaFields {
+			version := record[0]
 			size, _ := strconv.ParseInt(record[1], 10, 64)
 			modTime, _ := time.Parse(time.RFC3339, record[2])
 			modTime = modTime.UTC().Round(time.Second)
 			hash := record[3]
-			if v == version && size == info.Size() && modTime.Equal(info.ModTime()) && hash != "" {
+			if version == fileMetaVersion && size == info.Size() && modTime.Equal(info.ModTime()) && hash != "" {
 				return hash, nil
 			}
 		}
@@ -164,7 +170,7 @@ func hashFile(path string, info fs.FileInfo) (string, error) {
 	}
 
 	strHash := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
-	meta := fmt.Sprintf("%d,%d,%s,%s", version, info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano), strHash)
+	meta := fmt.Sprintf("%d,%d,%s,%s", fileMetaVersion, info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano), strHash)
 	xattr.Set(path, ".dup.meta.", []byte(meta))
 	return strHash, nil
 }

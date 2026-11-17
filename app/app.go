@@ -2,6 +2,7 @@ package app
 
 import (
 	"dup/analyzer"
+	"dup/dump"
 	"dup/files"
 	"dup/metas"
 
@@ -80,10 +81,11 @@ scanLoop:
 		// fmt.Printf("Event: %T %s\n", event, dump.Dump(event))
 		switch event := event.(type) {
 		case files.FolderScanned:
-			fmt.Printf("files: %d | folders: %d | pending: %d\n", event.FilesScanned, event.FoldersScanned, event.FoldersToScan)
+			// fmt.Printf("files: %d | folders: %d | pending: %d\n", event.FilesScanned, event.FoldersScanned, event.FoldersToScan)
 			// TODO UI
 		case files.ArchiveScanned:
-			metas[event.Idx] = event.Metas
+			fmt.Println("ARCHIVE", dump.Dump(event))
+			metas[event.Idx] = event.FileMetas
 			scanned[event.Idx] = true
 			if event.Idx == 0 {
 				for i := range app.roots[1:] {
