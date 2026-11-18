@@ -18,105 +18,99 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-type FolderScanned struct {
-	Idx            int
-	FilesScanned   int
-	FoldersScanned int
-	FoldersToScan  int
+func ScanArchive(rootPath string, events chan<- any, quit <-chan struct{}) {
+	root := &metas.Folder{Name: rootPath}
+	scanner := &Scanner{rootPath: rootPath, events: events, quit: quit}
+	scanner.scan(root)
+	events <- root
 }
 
-type ArchiveScanned struct {
-	Idx         int
-	FolderMetas metas.FolderMetas
-	FileMetas   metas.FileMetas
+type Scanner struct {
+	rootPath       string
+	events         chan<- any
+	quit           <-chan struct{}
+	filesScanned   int
+	foldersScanned int
+	err            error
 }
 
-func ScanArchive(idx int, root string, events chan<- any, quit <-chan struct{}) {
-	rootPrefixLen := len(root) + 1
-	foldersToScan := []string{root}
-	foldersScanned := 0
-	result := ArchiveScanned{Idx: idx}
+func (scanner *Scanner) scan(folder *metas.Folder) {
+	if scanner.err != nil {
+		scanner.events <- scanner.err
+		return
+	}
+	select {
+	case <-scanner.quit:
+		return
+	default:
+	}
 
-	for len(foldersToScan) > 0 {
-		select {
-		case <-quit:
-			return
-		default:
-		}
-		folderToScan := foldersToScan[0]
-		foldersToScan = foldersToScan[1:]
+	folderPath := folder.Path()
+	data, err := xattr.Get(folderPath, ".dup.meta.")
+	record := strings.Split(string(data), ",")
+	if len(record) == folderMetaFields && record[0] == folderMetaVersion && err == nil {
+		folder.Id = record[1]
+	}
 
-		entries, err := os.ReadDir(folderToScan)
-		if err != nil {
-			events <- err
-			return
-		}
-		for _, entry := range entries {
-			childPath := filepath.Join(folderToScan, entry.Name())
-			if entry.IsDir() {
-				if !strings.HasPrefix(entry.Name(), "~~~") {
-					data, err := xattr.Get(childPath, ".dup.meta.")
-					record := strings.Split(string(data), ",")
-					if len(record) == folderMetaFields && record[0] == folderMetaVersion && err == nil {
-						result.FolderMetas = append(result.FolderMetas, metas.FolderMeta{
-							Path: childPath[rootPrefixLen:],
-							Id:   record[1],
-						})
-					} else {
-						result.FolderMetas = append(result.FolderMetas, metas.FolderMeta{
-							Path: childPath[rootPrefixLen:],
-						})
-					}
-					foldersToScan = append(foldersToScan, childPath)
+	entries, err := os.ReadDir(folderPath)
+	if err != nil {
+		scanner.err = err
+		return
+	}
+	for _, entry := range entries {
+		childPath := filepath.Join(folderPath, entry.Name())
+		if entry.IsDir() {
+			if !strings.HasPrefix(entry.Name(), "~~~") {
+				fmt.Println("folder", entry)
+				childFolder := &metas.Folder{
+					Parent: folder,
+					Name:   entry.Name(),
 				}
-			} else {
-				if !entry.Type().IsRegular() || entry.Name() == ".DS_Store" || strings.HasPrefix(entry.Name(), "._") {
-					continue
-				}
-				info, err := entry.Info()
-				if err != nil {
-					events <- err
-					return
-				}
-
-				size := info.Size()
-				if size == 0 {
-					continue
-				}
-
-				modTime := info.ModTime()
-				modTime = modTime.UTC().Round(time.Second)
-
-				hash, err := hashFile(childPath, info)
-				if err != nil {
-					events <- err
-					return
-				}
-
-				result.FileMetas = append(result.FileMetas, metas.FileMeta{
-					Path:    norm.NFC.String(childPath),
-					Size:    size,
-					ModTime: modTime,
-					Hash:    hash,
-				})
+				folder.Subfolders = append(folder.Subfolders, childFolder)
+				scanner.scan(childFolder)
 			}
-		}
+		} else {
+			if !entry.Type().IsRegular() || entry.Name() == ".DS_Store" || strings.HasPrefix(entry.Name(), "._") {
+				continue
+			}
+			fmt.Println("file", entry)
+			info, err := entry.Info()
+			if err != nil {
+				scanner.err = err
+				return
+			}
 
-		if err != nil {
-			events <- err
-			return
-		}
+			size := info.Size()
+			if size == 0 {
+				continue
+			}
 
-		foldersScanned++
-		events <- FolderScanned{
-			Idx:            idx,
-			FilesScanned:   len(result.FileMetas),
-			FoldersScanned: foldersScanned,
-			FoldersToScan:  len(foldersToScan),
+			modTime := info.ModTime()
+			modTime = modTime.UTC().Round(time.Second)
+
+			hash, err := hashFile(childPath, info)
+			if err != nil {
+				scanner.err = err
+				return
+			}
+
+			folder.Files = append(folder.Files, &metas.File{
+				Parent:  folder,
+				Name:    norm.NFC.String(entry.Name()),
+				Size:    size,
+				ModTime: modTime,
+				Hash:    hash,
+			})
+			scanner.filesScanned++
 		}
 	}
 
-	events <- result
+	scanner.foldersScanned++
+	scanner.events <- metas.FolderScanned{
+		Root:           scanner.rootPath,
+		FilesScanned:   scanner.filesScanned,
+		FoldersScanned: scanner.foldersScanned,
+	}
 }
 
 const bufSize int64 = 256 * 1024

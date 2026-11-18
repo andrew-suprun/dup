@@ -10,13 +10,13 @@ import (
 )
 
 func TestAnalysis(t *testing.T) {
-	origin := metas.FileMetas{
+	origin := metas.Files{
 		{"a/b/c", 12, time.Time{}, "123"},
 		{"1/aaa", 13, time.Time{}, "234"},
 		{"2/bbb", 14, time.Time{}, "777"},
 		{"qqq", 15, time.Time{}, "15"},
 	}
-	copy := metas.FileMetas{
+	copy := metas.Files{
 		{"1/aaa", 14, time.Time{}, "777"},
 		{"2/bbb", 13, time.Time{}, "234"},
 		{"xxx", 14, time.Time{}, "345"},

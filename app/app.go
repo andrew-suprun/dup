@@ -73,7 +73,7 @@ func (app *App) run() {
 		go files.ScanArchive(idx, root, app.events, app.quit)
 	}
 	scanned := make([]bool, len(app.roots))
-	metas := make([]metas.FileMetas, len(app.roots))
+	fileMetas := make([]metas.Files, len(app.roots))
 	analyses := make([]analyzer.Analysis, len(app.roots))
 scanLoop:
 	for {
@@ -83,20 +83,20 @@ scanLoop:
 		case files.FolderScanned:
 			// fmt.Printf("files: %d | folders: %d | pending: %d\n", event.FilesScanned, event.FoldersScanned, event.FoldersToScan)
 			// TODO UI
-		case files.ArchiveScanned:
+		case metas.Archive:
 			fmt.Println("ARCHIVE", dump.Dump(event))
-			metas[event.Idx] = event.FileMetas
+			fileMetas[event.Idx] = event.Files
 			scanned[event.Idx] = true
 			if event.Idx == 0 {
 				for i := range app.roots[1:] {
 					idx := i + 1
 					if scanned[idx] {
-						analyses[idx] = analyzer.Analyze(metas[0], metas[idx])
+						analyses[idx] = analyzer.Analyze(fileMetas[0], fileMetas[idx])
 					}
 				}
 			} else {
 				if scanned[0] {
-					analyses[event.Idx] = analyzer.Analyze(metas[0], metas[event.Idx])
+					analyses[event.Idx] = analyzer.Analyze(fileMetas[0], fileMetas[event.Idx])
 				}
 			}
 			allScanned := true

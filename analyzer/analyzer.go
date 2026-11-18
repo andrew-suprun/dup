@@ -1,9 +1,8 @@
 package analyzer
 
 import (
-	"dup/dump"
 	"dup/metas"
-	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -18,11 +17,9 @@ type Move struct {
 	To   string
 }
 
-type ByHashPath map[string]map[string]*MetaLink
-
 type MetaLink struct {
-	Meta *metas.FileMeta
-	Link *metas.FileMeta
+	Meta *metas.File
+	Link *metas.File
 }
 
 type Branch struct {
@@ -30,45 +27,55 @@ type Branch struct {
 	ChildBranches map[string]*Branch
 }
 
-func Analyze(origin metas.FileMetas, copy metas.FileMetas) Analysis {
-	originMetas := byHashPath(origin)
-	copyMetas := byHashPath(copy)
-	result := Analysis{}
-	for hash, copyMetaMap := range copyMetas {
-		if originMetaMap, ok := originMetas[hash]; ok {
-			linkMetaMaps(originMetaMap, copyMetaMap)
+func Analyze(origin metas.Archive, copy metas.Archive, tempName string) Analysis {
+	analysis := Analysis{}
+
+	originLinks := make([]int, len(origin.Files))
+	copyLinks := make([]int, len(copy.Files))
+
+	for copyIdx := range copy.Files {
+		copyMeta := &copy.Files[copyIdx]
+		originIdx := -1
+		for idx := range origin.Files {
+			originMeta := &origin.Files[originIdx]
+			if originMeta.Hash == copyMeta.Hash {
+				if originMeta.Path == copyMeta.Path || originIdx == -1 {
+					originIdx = idx
+				}
+			}
+		}
+		if originIdx != -1 {
+			originLinks[originIdx] = copyIdx
+			copyLinks[copyIdx] = originIdx
+		} else {
+			copyLinks[copyIdx] = -1
 		}
 	}
 
-	filesToPurge(copyMetas, &result)
-
-	fmt.Println("METAS", dump.Dump(origin))
-	root := buildTree(originMetas)
-	fmt.Println("TREE:", dump.Dump(root))
-
-	filesToCopy(originMetas, &result)
-	return result
-}
-
-func linkMetaMaps(originMetaMap map[string]*MetaLink, copyMetaMap map[string]*MetaLink) {
-	for _, copyMetaLink := range copyMetaMap {
-		var originMetaLink *MetaLink
-		for _, link := range originMetaMap {
-			if link.Link != nil {
-				continue
-			}
-			if originMetaLink == nil {
-				originMetaLink = link
-			} else if link.Meta.Path == copyMetaLink.Meta.Path {
-				originMetaLink = link
-				break
-			}
-		}
-		if originMetaLink != nil {
-			originMetaLink.Link = copyMetaLink.Meta
-			copyMetaLink.Link = originMetaLink.Meta
+	for copyIdx := range copy.Files {
+		if copyLinks[copyIdx] == -1 {
+			copyMeta := &copy.Files[copyIdx]
+			analysis.Purge = append(analysis.Purge, copyMeta.Path)
+			copyMeta.Path = ""
+			copyMeta.Hash = ""
 		}
 	}
+
+	for originFolderIdx := range origin.Foldes {
+		originFolderMeta := &origin.Foldes[originFolderIdx]
+
+		for copyFolderIdx := range copy.Foldes {
+			copyFolderMeta := &copy.Foldes[copyFolderIdx]
+			if originFolderMeta.Id != copyFolderMeta.Id {
+				analysis.Move = append(analysis.Move, Move{
+					From: copyFolderMeta.Name,
+					To:   filepath.Join(copyFolderMeta.Name, tempName)})
+
+			}
+		}
+	}
+
+	return analysis
 }
 
 func buildTree(metas ByHashPath) *Branch {
@@ -97,37 +104,4 @@ func buildTree(metas ByHashPath) *Branch {
 	}
 
 	return root
-}
-
-func filesToPurge(copyMeta ByHashPath, analysis *Analysis) {
-	for _, copyMetaMap := range copyMeta {
-		for _, copyMetaLink := range copyMetaMap {
-			if copyMetaLink.Link == nil {
-				analysis.Purge = append(analysis.Purge, copyMetaLink.Meta.Path)
-			}
-		}
-	}
-}
-
-func filesToCopy(originMeta ByHashPath, analysis *Analysis) {
-	for _, originMetaMap := range originMeta {
-		for _, originMetaLink := range originMetaMap {
-			if originMetaLink.Link == nil {
-				analysis.Copy = append(analysis.Copy, originMetaLink.Meta.Path)
-			}
-		}
-	}
-}
-
-func byHashPath(fileMetas metas.FileMetas) ByHashPath {
-	result := ByHashPath{}
-	for i := range fileMetas {
-		meta := &fileMetas[i]
-		if metaMap, ok := result[meta.Hash]; ok {
-			metaMap[meta.Path] = &MetaLink{Meta: meta}
-		} else {
-			result[meta.Hash] = map[string]*MetaLink{meta.Path: {Meta: meta}}
-		}
-	}
-	return result
 }

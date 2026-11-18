@@ -1,19 +1,43 @@
 package metas
 
-import "time"
+import (
+	"path/filepath"
+	"time"
+)
 
-type FolderMeta struct {
-	Path string
-	Id   string
+type Folder struct {
+	Parent     *Folder
+	Name       string
+	Id         string
+	Subfolders Folders
+	Files      Files
 }
 
-type FolderMetas []FolderMeta
+func (file *Folder) Path() string {
+	if file.Parent == nil {
+		return file.Name
+	}
+	return filepath.Join(file.Parent.Path(), file.Name)
+}
 
-type FileMeta struct {
-	Path    string
+type Folders []*Folder
+
+type File struct {
+	Parent  *Folder
+	Name    string
 	Size    int64
 	ModTime time.Time
 	Hash    string
 }
 
-type FileMetas []FileMeta
+func (file *File) Path() string {
+	return filepath.Join(file.Parent.Path(), file.Name)
+}
+
+type Files []*File
+
+type FolderScanned struct {
+	Root           string
+	FilesScanned   int
+	FoldersScanned int
+}
