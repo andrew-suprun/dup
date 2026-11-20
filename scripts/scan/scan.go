@@ -20,6 +20,6 @@ func main() {
 			}
 		}
 	}()
-	files.ScanArchive(os.Args[1], events, quit)
+	files.ScanArchive(0, os.Args[1], events, quit)
 	<-quit
 }

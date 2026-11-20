@@ -18,15 +18,15 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-func ScanArchive(rootPath string, events chan<- any, quit <-chan struct{}) {
-	root := &metas.Folder{Name: rootPath}
-	scanner := &Scanner{rootPath: rootPath, events: events, quit: quit}
+func ScanArchive(idx int, base string, events chan<- any, quit <-chan struct{}) {
+	root := metas.NewFolder(nil, base)
+	scanner := &Scanner{idx: idx, events: events, quit: quit}
 	scanner.scan(root)
 	events <- root
 }
 
 type Scanner struct {
-	rootPath       string
+	idx            int
 	events         chan<- any
 	quit           <-chan struct{}
 	filesScanned   int
@@ -45,7 +45,7 @@ func (scanner *Scanner) scan(folder *metas.Folder) {
 	default:
 	}
 
-	folderPath := folder.Path()
+	folderPath := filepath.Join(folder.Path()...)
 	data, err := xattr.Get(folderPath, ".dup.meta.")
 	record := strings.Split(string(data), ",")
 	if len(record) == folderMetaFields && record[0] == folderMetaVersion && err == nil {
@@ -62,11 +62,8 @@ func (scanner *Scanner) scan(folder *metas.Folder) {
 		if entry.IsDir() {
 			if !strings.HasPrefix(entry.Name(), "~~~") {
 				fmt.Println("folder", entry)
-				childFolder := &metas.Folder{
-					Parent: folder,
-					Name:   entry.Name(),
-				}
-				folder.Subfolders = append(folder.Subfolders, childFolder)
+				childFolder := metas.NewFolder(folder, entry.Name())
+				folder.Subfolders[entry.Name()] = childFolder
 				scanner.scan(childFolder)
 			}
 		} else {
@@ -94,20 +91,14 @@ func (scanner *Scanner) scan(folder *metas.Folder) {
 				return
 			}
 
-			folder.Files = append(folder.Files, &metas.File{
-				Parent:  folder,
-				Name:    norm.NFC.String(entry.Name()),
-				Size:    size,
-				ModTime: modTime,
-				Hash:    hash,
-			})
+			folder.Files[entry.Name()] = metas.NewFile(folder, norm.NFC.String(entry.Name()), size, modTime, hash)
 			scanner.filesScanned++
 		}
 	}
 
 	scanner.foldersScanned++
 	scanner.events <- metas.FolderScanned{
-		Root:           scanner.rootPath,
+		Idx:            scanner.idx,
 		FilesScanned:   scanner.filesScanned,
 		FoldersScanned: scanner.foldersScanned,
 	}
@@ -164,7 +155,7 @@ func hashFile(path string, info fs.FileInfo) (string, error) {
 	}
 
 	strHash := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
-	meta := fmt.Sprintf("%d,%d,%s,%s", fileMetaVersion, info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano), strHash)
+	meta := fmt.Sprintf("%s,%d,%s,%s", fileMetaVersion, info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano), strHash)
 	xattr.Set(path, ".dup.meta.", []byte(meta))
 	return strHash, nil
 }

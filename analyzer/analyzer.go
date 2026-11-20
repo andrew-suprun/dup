@@ -3,7 +3,6 @@ package analyzer
 import (
 	"dup/metas"
 	"path/filepath"
-	"strings"
 )
 
 type Analysis struct {
@@ -17,21 +16,25 @@ type Move struct {
 	To   string
 }
 
-type MetaLink struct {
+type FolderLink struct {
+	Meta *metas.Folder
+	Link *metas.Folder
+}
+
+type FileLink struct {
 	Meta *metas.File
 	Link *metas.File
 }
 
 type Branch struct {
-	Links         map[string]*MetaLink
+	Links         map[string]*FileLink
 	ChildBranches map[string]*Branch
 }
 
-func Analyze(origin metas.Archive, copy metas.Archive, tempName string) Analysis {
+func Analyze(origin *metas.Folder, copy *metas.Folder, tempName string) Analysis {
 	analysis := Analysis{}
 
-	originLinks := make([]int, len(origin.Files))
-	copyLinks := make([]int, len(copy.Files))
+	// TODO link files
 
 	for copyIdx := range copy.Files {
 		copyMeta := &copy.Files[copyIdx]
@@ -45,15 +48,15 @@ func Analyze(origin metas.Archive, copy metas.Archive, tempName string) Analysis
 			}
 		}
 		if originIdx != -1 {
-			originLinks[originIdx] = copyIdx
-			copyLinks[copyIdx] = originIdx
+			originFileLinks[originIdx] = copyIdx
+			copyFileLinks[copyIdx] = originIdx
 		} else {
-			copyLinks[copyIdx] = -1
+			copyFileLinks[copyIdx] = -1
 		}
 	}
 
 	for copyIdx := range copy.Files {
-		if copyLinks[copyIdx] == -1 {
+		if copyFileLinks[copyIdx] == -1 {
 			copyMeta := &copy.Files[copyIdx]
 			analysis.Purge = append(analysis.Purge, copyMeta.Path)
 			copyMeta.Path = ""
@@ -76,32 +79,4 @@ func Analyze(origin metas.Archive, copy metas.Archive, tempName string) Analysis
 	}
 
 	return analysis
-}
-
-func buildTree(metas ByHashPath) *Branch {
-	root := &Branch{
-		Links:         map[string]*MetaLink{},
-		ChildBranches: map[string]*Branch{},
-	}
-	for _, metaMap := range metas {
-		for _, metaLink := range metaMap {
-			branch := root
-			components := strings.Split(metaLink.Meta.Path, "/")
-			for _, component := range components[:len(components)-1] {
-				if childBranch, ok := branch.ChildBranches[component]; ok {
-					branch = childBranch
-				} else {
-					childBranch := &Branch{
-						Links:         map[string]*MetaLink{},
-						ChildBranches: map[string]*Branch{},
-					}
-					branch.ChildBranches[component] = childBranch
-					branch = childBranch
-				}
-			}
-			branch.Links[components[len(components)-1]] = metaLink
-		}
-	}
-
-	return root
 }
