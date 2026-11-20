@@ -6,9 +6,8 @@ import (
 )
 
 type Analysis struct {
-	Purge []string
-	Move  []Move
-	Copy  []string
+	Move []Move
+	Copy []string
 }
 
 type Move struct {
@@ -16,67 +15,64 @@ type Move struct {
 	To   string
 }
 
-type FolderLink struct {
-	Meta *metas.Folder
-	Link *metas.Folder
-}
+type Folder = metas.Folder
+type Folders = metas.Folders
+type File = metas.File
+type Files = metas.Files
 
-type FileLink struct {
-	Meta *metas.File
-	Link *metas.File
-}
+func Analyze(origin *Folder, copy *Folder, tempName string) *Analysis {
+	analysis := &Analysis{}
 
-type Branch struct {
-	Links         map[string]*FileLink
-	ChildBranches map[string]*Branch
-}
-
-func Analyze(origin *metas.Folder, copy *metas.Folder, tempName string) Analysis {
-	analysis := Analysis{}
-
-	// TODO link files
-
-	for copyIdx := range copy.Files {
-		copyMeta := &copy.Files[copyIdx]
-		originIdx := -1
-		for idx := range origin.Files {
-			originMeta := &origin.Files[originIdx]
-			if originMeta.Hash == copyMeta.Hash {
-				if originMeta.Path == copyMeta.Path || originIdx == -1 {
-					originIdx = idx
-				}
-			}
-		}
-		if originIdx != -1 {
-			originFileLinks[originIdx] = copyIdx
-			copyFileLinks[copyIdx] = originIdx
-		} else {
-			copyFileLinks[copyIdx] = -1
-		}
-	}
-
-	for copyIdx := range copy.Files {
-		if copyFileLinks[copyIdx] == -1 {
-			copyMeta := &copy.Files[copyIdx]
-			analysis.Purge = append(analysis.Purge, copyMeta.Path)
-			copyMeta.Path = ""
-			copyMeta.Hash = ""
-		}
-	}
-
-	for originFolderIdx := range origin.Foldes {
-		originFolderMeta := &origin.Foldes[originFolderIdx]
-
-		for copyFolderIdx := range copy.Foldes {
-			copyFolderMeta := &copy.Foldes[copyFolderIdx]
-			if originFolderMeta.Id != copyFolderMeta.Id {
-				analysis.Move = append(analysis.Move, Move{
-					From: copyFolderMeta.Name,
-					To:   filepath.Join(copyFolderMeta.Name, tempName)})
-
-			}
-		}
-	}
+	moveFolders(analysis, origin, copy)
+	removeIdentical(origin, copy)
 
 	return analysis
+}
+
+func moveFolders(analysis *Analysis, originFolder, copyFolder *Folder) {
+	copyById := map[string]*Folder{}
+	collectFoldersById(copyFolder, copyById)
+	recMoveFolders(analysis, originFolder, copyById)
+}
+
+func recMoveFolders(analysis *Analysis, originFolder *Folder, copyById map[string]*Folder) {
+	if originFolder.Id != "" {
+		copyFolder := copyById[originFolder.Name]
+		if copyFolder != nil && originFolder.Id == copyFolder.Id {
+			originPath := originFolder.Path()[1:]
+			analysis.Move = append(analysis.Move, Move{
+				From: filepath.Join(copyFolder.Path()[1:]...),
+				To:   filepath.Join(originPath...),
+			})
+			copyFolder.Move(originPath)
+		}
+	}
+	for _, originSubfolder := range originFolder.Subfolders {
+		recMoveFolders(analysis, originSubfolder, copyById)
+	}
+}
+
+func collectFoldersById(folder *Folder, byId map[string]*Folder) {
+	if folder.Id != "" {
+		byId[folder.Id] = folder
+	}
+	for _, subfolder := range folder.Subfolders {
+		collectFoldersById(subfolder, byId)
+	}
+}
+
+func removeIdentical(originFolder, copyFolder *Folder) {
+	for fileName, originFile := range originFolder.Files {
+		copyFile := copyFolder.Files[fileName]
+		if copyFile != nil && originFile.Hash == copyFile.Hash && originFile.Size == copyFile.Size && originFile.ModTime.Equal(copyFile.ModTime) {
+			originFile.Remove()
+			copyFile.Remove()
+		}
+	}
+	for folderName, originSubfolder := range originFolder.Subfolders {
+		copySubfolder := copyFolder.Subfolders[folderName]
+		if copySubfolder != nil {
+			removeIdentical(originSubfolder, copySubfolder)
+		}
+	}
 }

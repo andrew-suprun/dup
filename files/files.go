@@ -19,7 +19,7 @@ import (
 )
 
 func ScanArchive(idx int, base string, events chan<- any, quit <-chan struct{}) {
-	root := metas.NewFolder(nil, base)
+	root := metas.AddFolder(nil, base)
 	scanner := &Scanner{idx: idx, events: events, quit: quit}
 	scanner.scan(root)
 	events <- root
@@ -62,7 +62,7 @@ func (scanner *Scanner) scan(folder *metas.Folder) {
 		if entry.IsDir() {
 			if !strings.HasPrefix(entry.Name(), "~~~") {
 				fmt.Println("folder", entry)
-				childFolder := metas.NewFolder(folder, entry.Name())
+				childFolder := metas.AddFolder(folder, entry.Name())
 				folder.Subfolders[entry.Name()] = childFolder
 				scanner.scan(childFolder)
 			}
@@ -91,7 +91,7 @@ func (scanner *Scanner) scan(folder *metas.Folder) {
 				return
 			}
 
-			folder.Files[entry.Name()] = metas.NewFile(folder, norm.NFC.String(entry.Name()), size, modTime, hash)
+			metas.AddFile(folder, norm.NFC.String(entry.Name()), size, modTime, hash)
 			scanner.filesScanned++
 		}
 	}
