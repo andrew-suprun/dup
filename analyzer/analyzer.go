@@ -1,7 +1,9 @@
 package analyzer
 
 import (
+	"dup/dump"
 	"dup/metas"
+	"fmt"
 	"path/filepath"
 )
 
@@ -37,15 +39,19 @@ func moveFolders(analysis *Analysis, originFolder, copyFolder *Folder) {
 }
 
 func recMoveFolders(analysis *Analysis, originFolder *Folder, copyById map[string]*Folder) {
+	fmt.Println("recMoveFolders: origin", originFolder.Name, originFolder.Id)
+	fmt.Println("recMoveFolders: copyBtId", dump.Dump(copyById))
 	if originFolder.Id != "" {
-		copyFolder := copyById[originFolder.Name]
-		if copyFolder != nil && originFolder.Id == copyFolder.Id {
-			originPath := originFolder.Path()[1:]
-			analysis.Move = append(analysis.Move, Move{
-				From: filepath.Join(copyFolder.Path()[1:]...),
-				To:   filepath.Join(originPath...),
-			})
-			copyFolder.Move(originPath)
+		if copyFolder, ok := copyById[originFolder.Id]; ok {
+			fmt.Println("recMoveFolders: copy", copyFolder.Name, copyFolder.Id)
+			if originFolder.Id == copyFolder.Id {
+				originPath := originFolder.Path()[1:]
+				analysis.Move = append(analysis.Move, Move{
+					From: filepath.Join(copyFolder.Path()[1:]...),
+					To:   filepath.Join(originPath...),
+				})
+				copyFolder.Move(originPath)
+			}
 		}
 	}
 	for _, originSubfolder := range originFolder.Subfolders {

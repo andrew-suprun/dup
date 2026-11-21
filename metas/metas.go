@@ -94,30 +94,30 @@ func (folder *Folder) Move(path []string) {
 	folder.Parent = parentFolder
 }
 
-func (folder *Folder) FindByPath(path []string) *Folder {
-	if len(path) == 0 {
-		return folder
-	}
-	name := path[0]
-	for _, childFolder := range folder.Subfolders {
-		if childFolder.Name == name {
-			return childFolder.FindByPath(path[1:])
-		}
-	}
-	return nil
-}
+// func (folder *Folder) FindByPath(path []string) *Folder {
+// 	if len(path) == 0 {
+// 		return folder
+// 	}
+// 	name := path[0]
+// 	for _, childFolder := range folder.Subfolders {
+// 		if childFolder.Name == name {
+// 			return childFolder.FindByPath(path[1:])
+// 		}
+// 	}
+// 	return nil
+// }
 
-func (folder *Folder) FindBy(f func(*Folder) bool) *Folder {
-	if f(folder) {
-		return folder
-	}
-	for _, childFolder := range folder.Subfolders {
-		if f(childFolder) {
-			return childFolder.FindBy(f)
-		}
-	}
-	return nil
-}
+// func (folder *Folder) FindBy(f func(*Folder) bool) *Folder {
+// 	if f(folder) {
+// 		return folder
+// 	}
+// 	for _, childFolder := range folder.Subfolders {
+// 		if f(childFolder) {
+// 			return childFolder.FindBy(f)
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (file *File) Path() []string {
 	return append(file.Parent.Path(), file.Name)
