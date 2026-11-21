@@ -25,6 +25,7 @@ func Analyze(origin *Folder, copy *Folder, tempName string) *Analysis {
 
 	moveFolders(analysis, origin, copy)
 	removeIdentical(origin, copy)
+	moveFiles(analysis, origin, copy)
 
 	return analysis
 }
@@ -75,4 +76,7 @@ func removeIdentical(originFolder, copyFolder *Folder) {
 			removeIdentical(originSubfolder, copySubfolder)
 		}
 	}
+}
+
+func moveFiles(analysis *Analysis, originFolder, copyFolder *Folder) {
 }

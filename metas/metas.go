@@ -24,7 +24,7 @@ type File struct {
 
 type Files map[string]*File
 
-func AddFolder(parent *Folder, name string) *Folder {
+func (parent *Folder) AddSubfolder(name string) *Folder {
 	folder := &Folder{
 		Parent:     parent,
 		Name:       name,
@@ -37,7 +37,7 @@ func AddFolder(parent *Folder, name string) *Folder {
 	return folder
 }
 
-func AddFile(parent *Folder, name string, size int64, modTime time.Time, hash string) *File {
+func (parent *Folder) AddFile(name string, size int64, modTime time.Time, hash string) *File {
 	file := &File{
 		Parent:  parent,
 		Name:    name,
@@ -52,10 +52,14 @@ func AddFile(parent *Folder, name string, size int64, modTime time.Time, hash st
 }
 
 func (folder *Folder) GetSubfolder(name string) *Folder {
+
+	if _, ok := folder.Files[name]; ok {
+		panic("Cannot GetSubfolder(). A file with the same name exists.")
+	}
 	if subfolder, ok := folder.Subfolders[name]; ok {
 		return subfolder
 	}
-	return AddFolder(folder, name)
+	return folder.AddSubfolder(name)
 }
 
 func (folder *Folder) Path() []string {
@@ -70,7 +74,24 @@ func (folder *Folder) Remove() {
 }
 
 func (folder *Folder) Move(path []string) {
-
+	folder.Remove()
+	parentFolder := folder
+	for parentFolder.Parent != nil {
+		parentFolder = parentFolder.Parent
+	}
+	for _, name := range path[:len(path)-1] {
+		parentFolder = parentFolder.GetSubfolder(name)
+	}
+	name := path[len(path)-1]
+	if _, ok := parentFolder.Subfolders[name]; ok {
+		panic("Cannot move Folder. A Folder with the same name exists.")
+	}
+	if _, ok := parentFolder.Files[name]; ok {
+		panic("Cannot move Folder. A File with the same name exists.")
+	}
+	parentFolder.Subfolders[name] = folder
+	folder.Name = name
+	folder.Parent = parentFolder
 }
 
 func (folder *Folder) FindByPath(path []string) *Folder {
@@ -107,7 +128,24 @@ func (file *File) Remove() {
 }
 
 func (file *File) Move(path []string) {
-
+	file.Remove()
+	parentFolder := file.Parent
+	for parentFolder.Parent != nil {
+		parentFolder = parentFolder.Parent
+	}
+	for _, name := range path[:len(path)-1] {
+		parentFolder = parentFolder.GetSubfolder(name)
+	}
+	name := path[len(path)-1]
+	if _, ok := parentFolder.Subfolders[name]; ok {
+		panic("Cannot move File. A Folder with the same name exists.")
+	}
+	if _, ok := parentFolder.Files[name]; ok {
+		panic("Cannot move File. A File with the same name exists.")
+	}
+	parentFolder.Files[name] = file
+	file.Name = name
+	file.Parent = parentFolder
 }
 
 type FolderScanned struct {

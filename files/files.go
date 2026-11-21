@@ -18,8 +18,14 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+type Folder = metas.Folder
+type Folders = metas.Folders
+type File = metas.File
+type Files = metas.Files
+
 func ScanArchive(idx int, base string, events chan<- any, quit <-chan struct{}) {
-	root := metas.AddFolder(nil, base)
+	var nilFolder *Folder
+	root := nilFolder.AddSubfolder(base)
 	scanner := &Scanner{idx: idx, events: events, quit: quit}
 	scanner.scan(root)
 	events <- root
@@ -62,7 +68,7 @@ func (scanner *Scanner) scan(folder *metas.Folder) {
 		if entry.IsDir() {
 			if !strings.HasPrefix(entry.Name(), "~~~") {
 				fmt.Println("folder", entry)
-				childFolder := metas.AddFolder(folder, entry.Name())
+				childFolder := folder.AddSubfolder(entry.Name())
 				folder.Subfolders[entry.Name()] = childFolder
 				scanner.scan(childFolder)
 			}
@@ -91,7 +97,7 @@ func (scanner *Scanner) scan(folder *metas.Folder) {
 				return
 			}
 
-			metas.AddFile(folder, norm.NFC.String(entry.Name()), size, modTime, hash)
+			folder.AddFile(norm.NFC.String(entry.Name()), size, modTime, hash)
 			scanner.filesScanned++
 		}
 	}
